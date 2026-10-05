@@ -58,8 +58,10 @@ class Pipeline:
 
     def analyze(self, signal: np.ndarray, sample_rate: int) -> Report:
         findings = [d.analyze(signal, sample_rate) for d in self.detectors]
-        overall = max((f.risk for f in findings), default=0.0)
+        risks = {f.name: f.risk for f in findings}
         any_unassessable = any(not f.assessable for f in findings)
+
+        overall = self._injection_score(risks)
         verdict = self._verdict(overall, any_unassessable)
         duration = len(signal) / sample_rate if sample_rate else 0.0
         return Report(
@@ -69,6 +71,25 @@ class Pipeline:
             sample_rate=sample_rate,
             duration_sec=duration,
         )
+
+    @staticmethod
+    def _injection_score(risks: dict) -> float:
+        """Corroborated injection score.
+
+        An ultrasonic/near-ultrasound injection shows up as BOTH significant
+        out-of-band energy AND a narrowband high-frequency carrier. Benign
+        audio trips at most one: broadband noise has out-of-band energy but no
+        carrier; a tonal/edge artefact has a peak but no broadband out-of-band
+        energy. The geometric mean of the two primary detectors requires both
+        to be present, which collapses those benign false positives.
+
+        The spectral-profile detector is deliberately NOT part of the score: on
+        its own it fires on any music or noise. It stays in the findings as
+        context, but it no longer drives the verdict.
+        """
+        oob = risks.get("out_of_band_energy", 0.0)
+        carrier = risks.get("carrier_peak", 0.0)
+        return float((oob * carrier) ** 0.5)
 
     @staticmethod
     def _verdict(risk: float, any_unassessable: bool = False) -> str:
