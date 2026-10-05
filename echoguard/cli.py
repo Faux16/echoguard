@@ -7,9 +7,9 @@ import json
 import sys
 
 from .audio import load_wav
-from .pipeline import Pipeline, CLEAR, SUSPICIOUS, HIGH_RISK
+from .pipeline import Pipeline, CLEAR, SUSPICIOUS, HIGH_RISK, INSUFFICIENT_DATA
 
-_EXIT_CODE = {CLEAR: 0, SUSPICIOUS: 1, HIGH_RISK: 2}
+_EXIT_CODE = {CLEAR: 0, SUSPICIOUS: 1, HIGH_RISK: 2, INSUFFICIENT_DATA: 4}
 
 
 def build_parser() -> argparse.ArgumentParser:

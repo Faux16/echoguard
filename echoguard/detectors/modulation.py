@@ -41,6 +41,7 @@ class CarrierPeakDetector(Detector):
                     f"(Nyquist {nyquist/1000:.1f} kHz <= 15 kHz)."
                 ),
                 evidence={"assessable": False},
+                assessable=False,
             )
 
         freqs, psd = welch_psd(signal, sample_rate)
@@ -51,6 +52,7 @@ class CarrierPeakDetector(Detector):
                 risk=0.0,
                 detail="Not enough high-band spectral resolution to assess.",
                 evidence={"assessable": False},
+                assessable=False,
             )
 
         # Energy gate: ignore peaks in a band that carries no real energy.
