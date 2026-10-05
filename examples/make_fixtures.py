@@ -26,6 +26,11 @@ def main() -> None:
     synth.write_wav(
         os.path.join(OUT, "modulated_carrier.wav"), synth.modulated_carrier(sample_rate=SR), SR
     )
+    # A low-bandwidth (16 kHz) capture: benign content, but too narrow to screen
+    # the ultrasonic band -> demonstrates the INSUFFICIENT_DATA verdict.
+    synth.write_wav(
+        os.path.join(OUT, "lowrate.wav"), synth.benign_speechlike(sample_rate=16_000), 16_000
+    )
     print(f"wrote fixtures to {OUT}")
 
 
