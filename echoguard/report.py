@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
-from .pipeline import Report, CLEAR, SUSPICIOUS, HIGH_RISK
+from .pipeline import Report, CLEAR, SUSPICIOUS, HIGH_RISK, INSUFFICIENT_DATA
 
-_VERDICT_MARK = {CLEAR: "[ OK ]", SUSPICIOUS: "[ ?? ]", HIGH_RISK: "[ !! ]"}
+_VERDICT_MARK = {
+    CLEAR: "[ OK ]",
+    SUSPICIOUS: "[ ?? ]",
+    HIGH_RISK: "[ !! ]",
+    INSUFFICIENT_DATA: "[ -- ]",
+}
 
 
 def render_text(report: Report, source: str = "") -> str:

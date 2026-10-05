@@ -38,6 +38,7 @@ class OutOfBandEnergyDetector(Detector):
                     f"Re-capture at >= 44.1 kHz to enable this check."
                 ),
                 evidence={"nyquist_hz": nyquist, "assessable": False},
+                assessable=False,
             )
 
         freqs, psd = welch_psd(signal, sample_rate)

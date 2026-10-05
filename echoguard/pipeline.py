@@ -12,6 +12,7 @@ from .detectors.base import Detector, Finding
 CLEAR = "CLEAR"
 SUSPICIOUS = "SUSPICIOUS"
 HIGH_RISK = "HIGH_RISK"
+INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
 
 
 @dataclass
@@ -58,7 +59,8 @@ class Pipeline:
     def analyze(self, signal: np.ndarray, sample_rate: int) -> Report:
         findings = [d.analyze(signal, sample_rate) for d in self.detectors]
         overall = max((f.risk for f in findings), default=0.0)
-        verdict = self._verdict(overall)
+        any_unassessable = any(not f.assessable for f in findings)
+        verdict = self._verdict(overall, any_unassessable)
         duration = len(signal) / sample_rate if sample_rate else 0.0
         return Report(
             overall_risk=overall,
@@ -69,9 +71,14 @@ class Pipeline:
         )
 
     @staticmethod
-    def _verdict(risk: float) -> str:
+    def _verdict(risk: float, any_unassessable: bool = False) -> str:
         if risk >= 0.66:
             return HIGH_RISK
         if risk >= 0.33:
             return SUSPICIOUS
+        # Nothing flagged - but if a key detector couldn't even assess the
+        # clip (e.g. bandwidth too low to see the ultrasonic band), we must
+        # not pass it off as CLEAR. "Couldn't check" is not "checked and clean".
+        if any_unassessable:
+            return INSUFFICIENT_DATA
         return CLEAR

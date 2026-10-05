@@ -18,9 +18,12 @@ class Finding:
     risk: float
     detail: str
     evidence: dict = field(default_factory=dict)
+    assessable: bool = True  # False when the detector could not evaluate (e.g. too little bandwidth)
 
     @property
     def severity(self) -> str:
+        if not self.assessable:
+            return "n/a"
         if self.risk >= 0.66:
             return "high"
         if self.risk >= 0.33:

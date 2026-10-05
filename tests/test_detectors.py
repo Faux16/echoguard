@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from echoguard import Pipeline
-from echoguard.pipeline import CLEAR, HIGH_RISK, SUSPICIOUS
+from echoguard.pipeline import CLEAR, HIGH_RISK, SUSPICIOUS, INSUFFICIENT_DATA
 from echoguard.detectors.ultrasonic import OutOfBandEnergyDetector
 from echoguard.detectors.modulation import CarrierPeakDetector
 from echoguard.detectors.spectral import SpectralProfileDetector
@@ -42,8 +42,15 @@ def test_low_bandwidth_reports_unassessable():
     sig = synth.benign_speechlike(sample_rate=16_000)
     det = OutOfBandEnergyDetector()
     finding = det.analyze(sig, 16_000)
-    assert finding.evidence["assessable"] is False
+    assert finding.assessable is False
     assert finding.risk == 0.0
+
+
+def test_low_bandwidth_verdict_is_insufficient_not_clear():
+    # A narrow capture with nothing flagged must NOT read CLEAR - we couldn't check.
+    sig = synth.benign_speechlike(sample_rate=16_000)
+    report = Pipeline().analyze(sig, 16_000)
+    assert report.verdict == INSUFFICIENT_DATA
 
 
 def test_spectral_profile_separates_speech_from_injection():
