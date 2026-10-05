@@ -38,7 +38,7 @@ echoguard scan recording.wav
 echoguard scan recording.wav --json
 ```
 
-Exit codes: `0` = CLEAR, `1` = SUSPICIOUS, `2` = HIGH_RISK, `3` = read error — so it drops into CI or a capture pipeline.
+Exit codes: `0` = CLEAR, `1` = SUSPICIOUS, `2` = HIGH_RISK, `3` = read error, `4` = INSUFFICIENT_DATA (capture too narrow to assess) — so it drops into CI or a capture pipeline.
 
 ### Example
 
@@ -84,11 +84,32 @@ Detecting ultrasonic and near-ultrasound energy requires a recording whose Nyqui
 
 Every threshold is a named constant in the detector module, so they are easy to audit and tune.
 
+## Benchmark
+
+EchoGuard ships with a benchmark harness (`benchmark/`) that runs the detectors over a labelled corpus and reports detection and false-positive rates.
+
+```bash
+python benchmark/corpus.py benchmark/corpus_benign   # generate a labelled benign corpus
+python benchmark/evaluate.py benchmark/corpus_benign # report per-category verdicts + FP rate
+```
+
+Our first result exposed a real weakness and the fix for it. The original "flag if any detector fires" logic treated any high-frequency audio as suspicious, giving a **75% false-positive rate** on benign audio (clean only on speech). Scoring an injection as the *corroboration* of two detectors — out-of-band energy **and** a narrowband carrier, both required — dropped that to **0%** while still flagging the attack fixtures:
+
+| Benign audio | FP before | FP after |
+| --- | --- | --- |
+| Speech | 0% | 0% |
+| Bright music | 100% | 0% |
+| Pink noise | 100% | 0% |
+| White noise | 100% | 0% |
+| **Overall (60 clips)** | **75%** | **0%** |
+
+Measured against synthetic benign audio and synthetic attack fixtures. The harness is ready for real captures; measuring detection rate on real attacks is the open research step.
+
 ## Limitations
 
 This is a **baseline screen**, and it is honest about what it is not:
 
-- It detects **spectral signatures**, not intent. A legitimate clip with genuine ultrasonic content (some music, test tones) can flag — that is a feature of a screen, not a classifier.
+- The 0% benign false-positive rate above is on **synthetic** audio. The corroboration rule requires both an out-of-band and a carrier signature, so a real attack with an attenuated carrier could be missed — real-capture calibration is pending.
 - It does **not** cover replay or voice-clone spoofing (that needs liveness/anti-spoofing models) or application-layer abuse (skill squatting). Those are on the roadmap.
 - It works on recorded clips. Real-time, on-device deployment is future work.
 - Thresholds are set against synthetic fixtures and need calibration on real-world captures across devices.
