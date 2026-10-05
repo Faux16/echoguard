@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "echoguard"
+version = "0.1.0"
+description = "Baseline open-source detector for inaudible / injected voice-command attacks"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "EchoGuard contributors" }]
+keywords = ["security", "voice-assistant", "ultrasonic", "dolphinattack", "defense", "detection"]
+dependencies = [
+    "numpy>=1.22",
+    "scipy>=1.8",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+echoguard = "echoguard.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["echoguard*"]
