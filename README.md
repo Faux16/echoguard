@@ -18,7 +18,7 @@ Given a WAV clip, EchoGuard runs three detectors and returns a risk verdict with
 | `carrier_peak` | A dominant narrowband tone high in the band | Modulated ultrasonic carriers |
 | `spectral_profile` | Energy roll-off inconsistent with human speech | Generic injected / synthetic / hidden-audio content |
 
-Each detector returns a risk in `[0, 1]` with the numbers behind its decision. The overall verdict is conservative — the maximum across detectors — because any one high-confidence signature is worth flagging.
+Each detector returns a risk in `[0, 1]` with the numbers behind its decision. The overall verdict requires **corroboration**: it is the geometric mean of `out_of_band_energy` and `carrier_peak`, so both an out-of-band energy signature *and* a narrowband carrier must be present to raise the score. `spectral_profile` is reported as context but deliberately does not drive the verdict, because on its own it fires on ordinary music and noise. See [Benchmark](#benchmark) for why.
 
 ## Install
 
