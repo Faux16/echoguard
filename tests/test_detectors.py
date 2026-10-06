@@ -65,3 +65,27 @@ def test_report_serialises():
     d = Pipeline().analyze(sig, SR).to_dict()
     assert d["verdict"] == HIGH_RISK
     assert "findings" in d and len(d["findings"]) == 3
+
+
+# --- realistic synthetic attack generator (benchmark/synth_attacks.py) ---
+
+def test_realistic_attack_flagged():
+    """A physics-modelled captured attack (carrier + mic demodulation) is flagged."""
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "benchmark"))
+    import synth_attacks as sa
+    sig = sa.make_attack(sample_rate=96_000, carrier_hz=28_000.0, distance_m=0.5,
+                         snr_db=25.0, seed=3)
+    report = Pipeline().analyze(sig, 96_000)
+    assert report.verdict in (HIGH_RISK, SUSPICIOUS)
+
+
+def test_realistic_benign_is_clear():
+    """A matched benign capture (same room/mic/noise, no carrier) stays CLEAR."""
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "benchmark"))
+    import synth_attacks as sa
+    for kind in ("speech", "music", "silence"):
+        sig = sa.make_benign(sample_rate=96_000, kind=kind, snr_db=25.0, seed=5)
+        report = Pipeline().analyze(sig, 96_000)
+        assert report.verdict == CLEAR, f"{kind} -> {report.verdict}"
