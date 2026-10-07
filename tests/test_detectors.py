@@ -89,3 +89,36 @@ def test_realistic_benign_is_clear():
         sig = sa.make_benign(sample_rate=96_000, kind=kind, snr_db=25.0, seed=5)
         report = Pipeline().analyze(sig, 96_000)
         assert report.verdict == CLEAR, f"{kind} -> {report.verdict}"
+
+
+# --- short clips: the carrier threshold must scale with Welch variance ---
+
+def test_short_white_noise_is_not_flagged():
+    """Short broadband noise has a noisy spectrum whose largest bin stands a few dB
+    above the median by chance; that must not read as a carrier."""
+    rng = np.random.default_rng(0)
+    pipe = Pipeline()
+    for duration in (0.1, 0.2, 0.3, 0.5):
+        flagged = 0
+        for _ in range(20):
+            sig = 0.2 * rng.standard_normal(int(duration * SR))
+            flagged += pipe.analyze(sig, SR).verdict in (SUSPICIOUS, HIGH_RISK)
+        assert flagged <= 1, f"{duration}s white noise flagged {flagged}/20"
+
+
+def test_short_clip_carrier_still_flagged():
+    """The CFAR threshold must not hide a real carrier in a short clip."""
+    n = int(0.2 * SR)
+    t = np.arange(n) / SR
+    base = synth.benign_speechlike(duration=0.2, sample_rate=SR)
+    sig = base + 0.3 * np.sin(2 * np.pi * 21_000.0 * t)
+    report = Pipeline().analyze(sig, SR)
+    assert report.verdict in (SUSPICIOUS, HIGH_RISK)
+
+
+def test_noise_threshold_shrinks_with_more_segments():
+    from echoguard.detectors.modulation import noise_prominence_threshold_db
+    from echoguard.detectors._dsp import welch_dof
+    short = noise_prominence_threshold_db(welch_dof(int(0.1 * SR), SR), 384)
+    long = noise_prominence_threshold_db(welch_dof(int(2.0 * SR), SR), 384)
+    assert short > long > 0

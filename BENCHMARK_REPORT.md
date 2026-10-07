@@ -66,6 +66,19 @@ Until that exists, EchoGuard's detection claim is limited to synthetic signals. 
 - The corroboration rule trades sensitivity for precision: it will miss weak carriers (§2A) and the 15–17 kHz band (§2B). Both are tuning knobs to calibrate on real data.
 - Recommended next step: capture a real labelled set (benign + attack), re-run both the FP and detection benchmarks, and sweep the out-of-band threshold and the corroboration weights to pick an operating point with measured, not assumed, trade-offs.
 
+## 5. Short-clip false positives — found and fixed
+
+The 0% benign FP in §1 was measured on 1.5 s clips. On shorter white noise at 48 kHz the carrier detector misfired: a Welch spectrum built from few segments is noisy, so its largest high-band bin stands several dB above the median by chance, and the old fixed `prominence / 30 dB` scale counted that as a carrier.
+
+**Fix:** a constant-false-alarm-rate threshold. Each Welch bin of noise is ~ χ²(ν)/ν, with ν the equivalent degrees of freedom of the segment average (Hann, 50% overlap). The detector computes the peak-to-median ratio that noise alone exceeds with probability 10⁻³ over the high band, and scores only the prominence in excess of it. The threshold is 8.4 dB at 0.1 s, 2.7 dB at 1 s and 2.0 dB at 2 s.
+
+| White noise, 50 clips | 0.1 s | 0.2 s | 0.3 s | 0.5 s | ≥ 1 s |
+| --- | --- | --- | --- | --- | --- |
+| Flagged before | 100% | 96% | 48% | 2% | 0% |
+| Flagged after | 0% | 0% | 0% | 0% | 0% |
+
+Everything else is unchanged: benign FP 0/60, sensitivity floor α ≈ 0.051, 15–17 kHz blind band, realistic synthetic attacks 12/12 with 0/12 false alarms. Regression tests: `tests/test_detectors.py::test_short_*`.
+
 ## Reproduce
 
 ```bash
