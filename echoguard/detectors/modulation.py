@@ -24,13 +24,45 @@ import numpy as np
 from scipy import stats
 
 from .base import Detector, Finding, clip01
-from ._dsp import welch_psd, welch_dof, band_power, total_power
+from ._dsp import Spectrum, band_power, total_power
 
 HIGH_BAND_LOW = 15_000.0  # Hz
 # Prominence (in dB) above the noise threshold at which we treat the tone as fully suspicious.
 PROMINENCE_DB_SATURATION = 30.0
 # Probability that a noise-only high band produces a peak above the CFAR threshold.
 NOISE_FALSE_ALARM_PROB = 1e-3
+# The high band must hold at least this fraction of total energy before we
+# even assess a peak - otherwise we'd be measuring the ratio of noise to noise
+# inside an essentially silent band (a false positive on normal speech).
+MIN_HIGH_BAND_FRACTION = 1e-3
+# A carrier is narrow: a tone (and its slow speech-rate sidebands) sits in a
+# couple of Welch bins. Narrowness = power within +-NARROW_INNER bins of the
+# peak over power within +-NARROW_OUTER bins. Synthetic carriers (AM, DSB-SC,
+# SSB, aliased) measure 1.00; a 19 kHz beacon under heavy noise 0.79; cymbal,
+# scissor and lighter resonances on real recordings 0.17-0.61. The carrier
+# risk is scaled down between NARROW_FLOOR and NARROW_FULL.
+NARROW_INNER = 2
+NARROW_OUTER = 20
+NARROW_FLOOR = 0.60
+NARROW_FULL = 0.85
+
+_EMPTY_EVIDENCE = {
+    "assessable": None,
+    "high_band_fraction": None,
+    "peak_freq_hz": None,
+    "prominence_db": None,
+    "noise_threshold_db": None,
+    "excess_db": None,
+    "narrowness": None,
+    "welch_dof": None,
+}
+
+
+def peak_narrowness(band: np.ndarray, k: int) -> float:
+    lo_i, hi_i = max(0, k - NARROW_INNER), min(len(band), k + NARROW_INNER + 1)
+    lo_o, hi_o = max(0, k - NARROW_OUTER), min(len(band), k + NARROW_OUTER + 1)
+    outer = float(band[lo_o:hi_o].sum())
+    return float(band[lo_i:hi_i].sum() / outer) if outer > 0 else 0.0
 
 
 def noise_prominence_threshold_db(dof: float, n_bins: int,
@@ -44,17 +76,13 @@ def noise_prominence_threshold_db(dof: float, n_bins: int,
     peak = stats.chi2.isf(per_bin, dof)
     median = stats.chi2.median(dof)
     return float(10.0 * np.log10(peak / median))
-# The high band must hold at least this fraction of total energy before we
-# even assess a peak - otherwise we'd be measuring the ratio of noise to noise
-# inside an essentially silent band (a false positive on normal speech).
-MIN_HIGH_BAND_FRACTION = 1e-3
 
 
 class CarrierPeakDetector(Detector):
     name = "carrier_peak"
 
-    def analyze(self, signal: np.ndarray, sample_rate: int) -> Finding:
-        nyquist = sample_rate / 2.0
+    def analyze_spectrum(self, spectrum: Spectrum) -> Finding:
+        nyquist = spectrum.nyquist
         if nyquist <= HIGH_BAND_LOW:
             return Finding(
                 name=self.name,
@@ -63,18 +91,18 @@ class CarrierPeakDetector(Detector):
                     f"Capture bandwidth too low to assess high-band carriers "
                     f"(Nyquist {nyquist/1000:.1f} kHz <= 15 kHz)."
                 ),
-                evidence={"assessable": False},
+                evidence={**_EMPTY_EVIDENCE, "assessable": False},
                 assessable=False,
             )
 
-        freqs, psd = welch_psd(signal, sample_rate)
+        freqs, psd = spectrum.freqs, spectrum.psd
         mask = freqs >= HIGH_BAND_LOW
-        if not np.any(mask) or np.count_nonzero(mask) < 4:
+        if np.count_nonzero(mask) < 4:
             return Finding(
                 name=self.name,
                 risk=0.0,
                 detail="Not enough high-band spectral resolution to assess.",
-                evidence={"assessable": False},
+                evidence={**_EMPTY_EVIDENCE, "assessable": False},
                 assessable=False,
             )
 
@@ -85,20 +113,24 @@ class CarrierPeakDetector(Detector):
                 name=self.name,
                 risk=0.0,
                 detail="No significant energy in the high band; no carrier to assess.",
-                evidence={"assessable": True, "high_band_fraction": high_fraction},
+                evidence={**_EMPTY_EVIDENCE, "assessable": True,
+                          "high_band_fraction": float(high_fraction)},
             )
 
         band = psd[mask]
         band_freqs = freqs[mask]
         floor = float(np.median(band)) or 1e-20
-        peak = float(np.max(band))
-        peak_freq = float(band_freqs[int(np.argmax(band))])
-        prominence_db = 10.0 * np.log10(peak / floor) if floor > 0 else 0.0
-        dof = welch_dof(len(signal), sample_rate)
+        k = int(np.argmax(band))
+        peak = float(band[k])
+        peak_freq = float(band_freqs[k])
+        prominence_db = float(10.0 * np.log10(peak / floor)) if floor > 0 else 0.0
+        dof = spectrum.dof
         threshold_db = noise_prominence_threshold_db(dof, len(band))
         excess_db = prominence_db - threshold_db
+        narrowness = peak_narrowness(band, k)
+        narrow_factor = clip01((narrowness - NARROW_FLOOR) / (NARROW_FULL - NARROW_FLOOR))
 
-        risk = clip01(excess_db / PROMINENCE_DB_SATURATION)
+        risk = clip01(excess_db / PROMINENCE_DB_SATURATION) * narrow_factor
         if risk >= 0.66:
             detail = (
                 f"Dominant narrowband tone at {peak_freq/1000:.1f} kHz stands "
@@ -110,6 +142,11 @@ class CarrierPeakDetector(Detector):
                 f"Elevated narrowband energy at {peak_freq/1000:.1f} kHz "
                 f"({prominence_db:.0f} dB above floor); unusual for speech."
             )
+        elif excess_db > 0 and narrow_factor < 1.0:
+            detail = (
+                f"High-band peak at {peak_freq/1000:.1f} kHz is broad (narrowness "
+                f"{narrowness:.2f}) - a resonance or broadband content, not a carrier."
+            )
         else:
             detail = "No dominant high-band carrier tone detected."
 
@@ -119,11 +156,12 @@ class CarrierPeakDetector(Detector):
             detail=detail,
             evidence={
                 "assessable": True,
+                "high_band_fraction": float(high_fraction),
                 "peak_freq_hz": peak_freq,
                 "prominence_db": prominence_db,
-                "noise_threshold_db": threshold_db,
-                "excess_db": excess_db,
-                "welch_dof": dof,
-                "high_band_fraction": high_fraction,
+                "noise_threshold_db": float(threshold_db),
+                "excess_db": float(excess_db),
+                "narrowness": narrowness,
+                "welch_dof": float(dof),
             },
         )
