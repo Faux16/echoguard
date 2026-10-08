@@ -408,9 +408,7 @@ function fillAnalyze(d) {
   const txt = narrative(d, oob, car);
   $("#vTitle").textContent = txt.title; $("#vReason").textContent = txt.reason;
   $("#vActionT").textContent = txt.action; $("#vAction").style.borderColor = v.hex + "66";
-  $("#vRisk").textContent = d.overall_risk.toFixed(2); $("#vRisk").style.color = v.hex;
-  const arc = $("#ringArc"); arc.setAttribute("stroke", v.hex); arc.style.filter = `drop-shadow(0 0 6px ${v.hex}88)`;
-  requestAnimationFrame(() => arc.setAttribute("stroke-dasharray", `${(75 * d.overall_risk).toFixed(1)} 100`));
+  renderScore($("#vScore"), d);
   $("#vStats").innerHTML = heroStats(d, oob, car).map(s =>
     `<div class="stat"><div class="k">${s.k}${helpBtn(s.help)}</div><div class="v">${s.v}<small>${s.u || ""}</small></div><div class="h">${s.h || ""}</div></div>`).join("");
   $("#specSub").textContent = `${d.spectrogram.vmin_db.toFixed(0)} to ${d.spectrogram.vmax_db.toFixed(0)} dB · ${d.analysis_ms} ms`;
@@ -458,6 +456,16 @@ function heroStats(d, oob, car) {
     isCarrier ? { k: "Carrier", help: "stat:carrier", v: (a.carrier_peak_hz / 1000).toFixed(2), u: "kHz", h: `${a.carrier_prominence_db.toFixed(0)} dB above floor` }
       : { k: "Carrier", help: "stat:carrier", v: "none", u: "", h: a.carrier_peak_hz && sb != null && sb < t.sideband_full_db && car && car.e.prominence_db >= 20 ? `unmodulated tone at ${(a.carrier_peak_hz / 1000).toFixed(1)} kHz` : "no modulated carrier" },
     { k: "Modulation sidebands", help: "stat:sideband", v: sb == null ? "—" : sb.toFixed(0), u: sb == null ? "" : "dB", h: sb == null ? "" : sb >= t.sideband_full_db ? "modulated — command-like" : sb <= t.sideband_floor_db ? "bare tone — beacon-like" : "weakly modulated" }];
+}
+function renderScore(el, d, { small = false } = {}) {
+  const t = d.thresholds || engine.info?.thresholds || { suspicious_risk: .33, high_risk: .66 }, v = VERDICT[d.verdict] || VERDICT.INSUFFICIENT_DATA, na = d.verdict === "INSUFFICIENT_DATA";
+  const R = d.overall_risk ?? 0, oob = ev(d, "out_of_band_energy"), car = ev(d, "carrier_peak"), rA = oob ? oob.risk : 0, rB = car ? car.risk : 0;
+  const band = na ? "" : R >= t.high_risk ? "h" : R >= t.suspicious_risk ? "s" : "c";
+  el.className = "score" + (small ? " sm" : "") + (na ? " na" : "");
+  el.innerHTML = `<div class="n" style="color:${v.hex}">${na ? "—" : R.toFixed(2)}<small>risk score</small></div>
+    <div class="scale"><i class="c${band === "c" ? " on" : ""}" style="flex:${t.suspicious_risk}"></i><i class="s${band === "s" ? " on" : ""}" style="flex:${t.high_risk - t.suspicious_risk}"></i><i class="h${band === "h" ? " on" : ""}" style="flex:${1 - t.high_risk}"></i><u style="left:${(Math.min(1, Math.max(0, R)) * 100).toFixed(1)}%"></u></div>
+    <div class="ticks"><span>0</span><b>${t.suspicious_risk}</b><b>${t.high_risk}</b><span>1</span></div>
+    <div class="f">R<span class="op">=</span>√(<b>ρA ${rA.toFixed(2)}</b><span class="op">×</span><b>ρB ${rB.toFixed(2)}</b>)${na ? `<span class="op">· not assessable</span>` : ""}</div>`;
 }
 function carrierFound(d) { const c = ev(d, "carrier_peak"); return !!(c && c.assessable && d.annotations.carrier_peak_hz && c.risk >= d.thresholds.suspicious_risk); }
 
@@ -915,6 +923,7 @@ function resetLive() {
   live.wf = document.createElement("canvas"); live.wf.width = live.cols; live.wf.height = live.wfF;
   const c = live.wf.getContext("2d"); c.fillStyle = "#04060c"; c.fillRect(0, 0, live.cols, live.wfF);
   $("#lN").textContent = 0; $("#lF").textContent = 0; renderLiveStats(); drawWaterfall(); drawStrip();
+  $("#lScore").className = "score sm na"; $("#lScore").innerHTML = `<div class="n" style="color:var(--na)">—<small>risk score</small></div><div class="scale"><i class="c" style="flex:.33"></i><i class="s" style="flex:.33"></i><i class="h" style="flex:.34"></i></div><div class="ticks"><span>0</span><b>0.33</b><b>0.66</b><span>1</span></div>`;
 }
 function renderLiveStats() {
   const h = live.hist, n = h.length, flags = h.filter(x => isFlag(x.v)).length, scored = h.filter(x => x.v !== "INSUFFICIENT_DATA");
@@ -967,8 +976,7 @@ function liveAdd(d, blob) {
   for (let r = 0; r < live.wfF; r++) { const sr_ = Math.min(F - 1, Math.round(r / (live.wfF - 1) * (F - 1)));
     for (let c = 0; c < live.per; c++) { const sc = Math.min(T - 1, Math.floor(c / live.per * T)), val = g[sr_ * T + sc], o = (r * live.per + c) * 4; dd[o] = LUT[val * 3]; dd[o + 1] = LUT[val * 3 + 1]; dd[o + 2] = LUT[val * 3 + 2]; dd[o + 3] = 255; } }
   wc.putImageData(img, live.cols - live.per, 0);
-  const arc = $("#lArc"); arc.setAttribute("stroke", v.hex); arc.setAttribute("stroke-dasharray", `${(75 * d.overall_risk).toFixed(1)} 100`);
-  $("#lRisk").textContent = d.overall_risk.toFixed(2); $("#lRisk").style.color = v.hex;
+  renderScore($("#lScore"), d, { small: true });
   $("#lTag").className = "tag t-" + d.verdict; $("#lTagT").textContent = v.label;
   const flags = live.hist.filter(x => isFlag(x.v)).length;
   $("#lN").textContent = live.hist.length; $("#lF").textContent = flags; renderLiveStats();
@@ -1126,6 +1134,7 @@ function renderCompare() {
     return `<div class="card"><div class="card-h"><h3>${k === "a" ? "A" : "B"}</h3><div class="right" style="flex:1"><select class="inp" data-side="${k}" style="width:100%">${opts(id)}</select></div></div><div class="card-b">${r ? cmpBody(r) : `<div class="empty"><b>Nothing selected</b>Pick a capture from History.</div>`}</div></div>`; };
   $("#cmpGrid").innerHTML = side("a", compare.a) + side("b", compare.b);
   $$("#cmpGrid select").forEach(s => s.onchange = () => { compare[s.dataset.side] = s.value || null; renderCompare(); });
+  $$("#cmpGrid [data-score]").forEach(el => { const r = history.find(x => x.id === el.dataset.score); if (r) renderScore(el, { ...r.data, overall_risk: r.risk, verdict: r.verdict }, { small: true }); });
   const A = history.find(x => x.id === compare.a), B = history.find(x => x.id === compare.b);
   if (!A || !B) { $("#cmpDiff").innerHTML = `<div class="empty">Select two captures to see the differences.</div>`; return; }
   const n = (x, f) => x == null ? "—" : f(x), delta = (a, b, f, lowerBetter = true) => { if (a == null || b == null) return "—"; const d = b - a; const cls = d === 0 ? "" : (d < 0) === lowerBetter ? "better" : "worse"; return `<span class="${cls}">${d > 0 ? "+" : ""}${f(d)}</span>`; };
@@ -1145,8 +1154,7 @@ function renderCompare() {
 }
 function cmpBody(r) {
   const d = r.data, v = VERDICT[r.verdict], tx = narrative(d, ev(d, "out_of_band_energy"), ev(d, "carrier_peak"));
-  return `<div class="row" style="gap:12px;align-items:flex-start"><div class="ring" style="width:84px;height:84px;flex:none"><svg viewBox="0 0 132 132" style="width:84px;height:84px"><circle cx="66" cy="66" r="54" fill="none" stroke="var(--track)" stroke-width="11" pathLength="100" stroke-dasharray="75 100" stroke-linecap="round"/><circle cx="66" cy="66" r="54" fill="none" stroke="${v.hex}" stroke-width="11" pathLength="100" stroke-dasharray="${(75 * r.risk).toFixed(1)} 100" stroke-linecap="round"/></svg><div class="val"><b style="font-size:20px;color:${v.hex}">${r.risk.toFixed(2)}</b></div></div>
-    <div style="min-width:0">${vtag(r.verdict)}<div style="font-weight:600;margin-top:8px">${esc(tx.title)}</div><div class="faint" style="font-size:12.5px;margin-top:3px">${esc(tx.reason)}</div></div></div>
+  return `<div class="score sm" data-score="${r.id}"></div><div style="margin-top:12px"><div style="min-width:0">${vtag(r.verdict)}<div style="font-weight:600;margin-top:8px">${esc(tx.title)}</div><div class="faint" style="font-size:12.5px;margin-top:3px">${esc(tx.reason)}</div></div></div>
     <div style="margin-top:12px">${[["Captured", fmtWhen(r.ts)], ["Rate", (r.sr / 1000).toFixed(1) + " kHz"], ["Duration", r.dur.toFixed(2) + " s"], ["Above 18 kHz", fmtPct(r.oob)], ["Carrier", r.car ? (r.car / 1000).toFixed(2) + " kHz" : "none"], ["Tags", (r.tags || []).join(", ") || "—"]].map(([k, v]) => `<div class="kv"><span>${k}</span><b>${esc(v)}</b></div>`).join("")}</div>
     <button class="btn sm ghost" style="margin-top:12px" data-open="${r.id}">Open in Analyze</button>`;
 }

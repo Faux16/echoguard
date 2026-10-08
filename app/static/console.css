@@ -235,17 +235,14 @@ tbody tr.click{cursor:pointer} tbody tr.click:hover{background:var(--hover)}
 .sample{display:grid;grid-template-columns:140px 1fr;gap:14px;align-items:center;padding:10px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);cursor:pointer;transition:.14s}
 .sample:hover{border-color:var(--accent);transform:translateY(-1px)}
 .sample canvas{width:140px;height:72px;border-radius:7px;background:var(--plot)} .sample h4{margin:0 0 3px;font-size:13.5px} .sample p{margin:0 0 7px;font-size:12px;color:var(--text-3)}
-.verdict{display:grid;grid-template-columns:minmax(0,1fr) 212px minmax(0,1.05fr);margin-bottom:var(--gap);overflow:hidden}
+.verdict{display:grid;grid-template-columns:minmax(0,1fr) 250px minmax(0,1.05fr);margin-bottom:var(--gap);overflow:hidden}
 .verdict .v-l{padding:22px 24px;border-right:1px solid var(--hair)}
 .verdict .v-l h1{margin:12px 0 8px;font-size:24px;line-height:1.2;letter-spacing:-.02em;font-weight:650}
 .verdict .v-l p{margin:0;color:var(--text-2);font-size:13.5px;line-height:1.6;max-width:62ch}
 .verdict .v-l .tagrow{display:flex;align-items:center;gap:8px}
 .verdict .action{display:flex;gap:10px;align-items:flex-start;margin-top:14px;padding:10px 12px;border-radius:10px;background:var(--sunk);border:1px solid var(--border);font-size:13px;color:var(--text)}
 .verdict .action .ico{margin-top:1px}
-.verdict .v-m{display:grid;place-items:center;padding:22px 20px;border-right:1px solid var(--hair);background:var(--sunk)}
-.ring{position:relative;width:150px;height:150px} .ring svg{width:150px;height:150px;transform:rotate(135deg)}
-.ring .val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:10px} .ring .val b{font-size:38px;font-weight:600;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums} .ring .val span{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-top:9px}
-.ring .val span .help{display:none}
+.verdict .v-m{display:flex;align-items:center;padding:22px 24px;border-right:1px solid var(--hair)}
 .verdict .v-r{display:grid;grid-template-columns:repeat(3,1fr)}
 .stat{padding:22px 18px;border-left:1px solid var(--hair)} .stat:first-child{border-left:0}
 .stat .k{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);display:flex;align-items:center;gap:6px} .stat .v{font-size:23px;font-weight:650;letter-spacing:-.02em;margin-top:8px} .stat .v small{font-size:13px;font-weight:500;color:var(--text-3);margin-left:3px} .stat .h{font-size:12px;color:var(--text-3);margin-top:4px}
@@ -345,3 +342,21 @@ tbody tr.click{cursor:pointer} tbody tr.click:hover{background:var(--hover)}
 @media print{.rail,.appbar,.toasts{display:none!important}.app{grid-template-columns:1fr}body{background:#fff}}
 
 .log .e.click{cursor:pointer;border-radius:6px;margin:0 -6px;padding-left:6px;padding-right:6px} .log .e.click:hover{background:var(--hover)}
+
+/* ---------------------------------------------------------------- score block: number + threshold scale + formula */
+.score{width:100%;min-width:0}
+.score .n{font-size:46px;font-weight:300;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:10px}
+.score .n small{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)}
+.score .scale{position:relative;display:flex;gap:3px;height:8px;margin-top:16px}
+.score .scale i{display:block;height:100%;border-radius:3px;background:var(--track);opacity:.45}
+.score .scale i.on{opacity:1}
+.score .scale i.c{background:var(--ok)} .score .scale i.s{background:var(--warn)} .score .scale i.h{background:var(--bad)}
+.score .scale u{position:absolute;top:-5px;width:2px;height:18px;background:var(--text);border-radius:1px;transform:translateX(-1px);box-shadow:0 0 0 2px var(--surface)}
+.score .scale u::after{content:"";position:absolute;left:-3px;top:-5px;border:4px solid transparent;border-top:5px solid var(--text)}
+.score .ticks{display:flex;justify-content:space-between;margin-top:7px;font-size:10.5px;color:var(--text-4);font-variant-numeric:tabular-nums}
+.score .ticks b{font-weight:600;color:var(--text-3)}
+.score .f{margin-top:12px;font-size:12px;color:var(--text-3);display:flex;gap:4px;align-items:baseline;flex-wrap:wrap}
+.score .f b{color:var(--text-2);font-weight:500;font-variant-numeric:tabular-nums}
+.score .f .op{color:var(--text-4)}
+.score.sm .n{font-size:30px} .score.sm .scale{margin-top:10px} .score.sm .f{display:none}
+.score.na .n{color:var(--na)} .score.na .scale u{display:none}
