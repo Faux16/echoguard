@@ -2,11 +2,31 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 from scipy import signal as sps
 
 # np.trapz was removed in NumPy 2.0 in favour of np.trapezoid.
-_trapz = getattr(np, "trapezoid", None) or getattr(np, "trapz")
+_trapz = getattr(np, "trapezoid", None) or getattr(np, "trapz")  # noqa: B009
+
+
+@dataclass(frozen=True)
+class Spectrum:
+    """A Welch power spectral density of one clip, computed once and shared by all detectors."""
+
+    freqs: np.ndarray
+    psd: np.ndarray
+    sample_rate: int
+    n_samples: int
+
+    @property
+    def nyquist(self) -> float:
+        return self.sample_rate / 2.0
+
+    @property
+    def dof(self) -> float:
+        return welch_dof(self.n_samples, self.sample_rate)
 
 
 def welch_nperseg(n: int, sample_rate: int) -> int:
@@ -22,6 +42,11 @@ def welch_psd(signal: np.ndarray, sample_rate: int):
     nperseg = welch_nperseg(n, sample_rate)
     freqs, psd = sps.welch(signal, fs=sample_rate, nperseg=nperseg)
     return freqs, psd
+
+
+def compute_spectrum(signal: np.ndarray, sample_rate: int) -> Spectrum:
+    freqs, psd = welch_psd(signal, sample_rate)
+    return Spectrum(freqs=freqs, psd=psd, sample_rate=int(sample_rate), n_samples=len(signal))
 
 
 def welch_dof(n: int, sample_rate: int) -> float:
@@ -55,9 +80,9 @@ def welch_dof(n: int, sample_rate: int) -> float:
 
 
 def band_power(freqs: np.ndarray, psd: np.ndarray, low: float, high: float) -> float:
-    """Integrate PSD over [low, high] Hz."""
+    """Integrate PSD over [low, high) Hz. Returns mean-square units (full scale = 1.0)."""
     mask = (freqs >= low) & (freqs < high)
-    if not np.any(mask):
+    if np.count_nonzero(mask) < 2:
         return 0.0
     return float(_trapz(psd[mask], freqs[mask]))
 
@@ -65,6 +90,11 @@ def band_power(freqs: np.ndarray, psd: np.ndarray, low: float, high: float) -> f
 def total_power(freqs: np.ndarray, psd: np.ndarray) -> float:
     total = float(_trapz(psd, freqs))
     return total if total > 0 else 1e-20
+
+
+def power_to_dbfs(power: float) -> float:
+    """Mean-square power -> dB relative to a full-scale square wave (mean square 1.0)."""
+    return float(10.0 * np.log10(max(power, 1e-30)))
 
 
 def rolloff_frequency(freqs: np.ndarray, psd: np.ndarray, fraction: float = 0.99) -> float:

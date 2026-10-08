@@ -7,7 +7,6 @@ import numpy as np
 from echoguard import Pipeline
 from echoguard.pipeline import CLEAR, HIGH_RISK, SUSPICIOUS, INSUFFICIENT_DATA
 from echoguard.detectors.ultrasonic import OutOfBandEnergyDetector
-from echoguard.detectors.modulation import CarrierPeakDetector
 from echoguard.detectors.spectral import SpectralProfileDetector
 from tests import synth
 
@@ -71,7 +70,8 @@ def test_report_serialises():
 
 def test_realistic_attack_flagged():
     """A physics-modelled captured attack (carrier + mic demodulation) is flagged."""
-    import sys, os
+    import sys
+    import os
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "benchmark"))
     import synth_attacks as sa
     sig = sa.make_attack(sample_rate=96_000, carrier_hz=28_000.0, distance_m=0.5,
@@ -82,7 +82,8 @@ def test_realistic_attack_flagged():
 
 def test_realistic_benign_is_clear():
     """A matched benign capture (same room/mic/noise, no carrier) stays CLEAR."""
-    import sys, os
+    import sys
+    import os
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "benchmark"))
     import synth_attacks as sa
     for kind in ("speech", "music", "silence"):

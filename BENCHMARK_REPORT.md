@@ -1,6 +1,6 @@
 # EchoGuard — Benchmark Report
 
-**Version:** v0.1.0  **As-of:** 2026-10-06  **Scope:** what has actually been measured, and what has not.
+**Version:** v0.2.0  **As-of:** 2026-10-08 (§1–5 measured 2026-10-06 on v0.1.0)  **Scope:** what has actually been measured, and what has not.
 
 ## Summary
 
@@ -78,6 +78,59 @@ The 0% benign FP in §1 was measured on 1.5 s clips. On shorter white noise at 4
 | Flagged after | 0% | 0% | 0% | 0% | 0% |
 
 Everything else is unchanged: benign FP 0/60, sensitivity floor α ≈ 0.051, 15–17 kHz blind band, realistic synthetic attacks 12/12 with 0/12 false alarms. Regression tests: `tests/test_detectors.py::test_short_*`.
+
+## 6. v0.2.0 — real audio, realistic capture chains, and what the detector cannot see
+
+**As-of:** 2026-10-08. Four measurements made against this version; scripts and raw outputs are being moved into `benchmark/` and are available on request until then.
+
+### 6a. Real benign audio: 2.0% → 0% false positives
+
+307 openly licensed real recordings at 44.1/48 kHz (VCTK clean speech, FSD50K speech-with-noise / music / environmental / foley, ESC-50, MUSDB18-HQ mixes), scored as full clips and as 0.5 s and 0.2 s windows (3,230 segments).
+
+| Window | FP before v0.2.0 | FP after |
+| --- | --- | --- |
+| Full clip | 2.0% (6/307, 1 HIGH_RISK) | **0%** |
+| 0.5 s | 1.1% | **0%** |
+| 0.2 s | 0.7% | **0%** |
+
+Speech was 0% at every window length before and after. The 13 flagged clips were close-miked hi-hats, a ticking stopwatch, scissors, a lighter, shattering glass (genuinely 10–18% of energy above 18 kHz, with a 12 dB resonance in a flat spectrum) and three synth-sample tails at −51 to −73 dBFS flagged on dither alone. Two changes cleared them without touching any attack benchmark:
+
+- **Absolute level floor** (`MIN_BAND_LEVEL_DBFS = −60`): the 18 kHz+ band must reach −60 dBFS before its ratio counts. The 99th percentile of that level across benign segments is −34 dBFS.
+- **Carrier narrowness** (`peak_narrowness`): power within ±2 Welch bins of the peak over power within ±20 bins. Synthetic carriers (AM, DSB-SC, SSB, and a 25 kHz carrier aliased through a 48 kHz ADC) measure 1.00; a 19 kHz beacon under heavy noise 0.79; the benign resonances 0.17–0.61. Carrier risk is scaled down between 0.60 and 0.85.
+
+Unchanged after both: sensitivity floor α = 0.051, 15–17 kHz blind band, synthetic attacks 12/12 with 0/12 false alarms, synthetic benign 0/60. One red-team case changed: a *spread-spectrum* "carrier" (band-limited noise 20–23.5 kHz) was previously flagged 12/12 and is now 0/12, because it is not narrow. No published attack uses one; a wideband carrier does not demodulate to an intelligible command.
+
+### 6b. Realistic capture chains: 0% detection
+
+The simulator writes 96 kHz audio with no anti-alias filter, so the carrier itself survives into the file. Real devices do not do that. Passing the same simulated attacks (synthesised at 192 kHz, carrier 28 kHz) through an 8th-order Butterworth anti-alias filter at 0.45 × f_s and a polyphase resampler:
+
+| Capture | Detected | Mean R | Energy above 18 kHz |
+| --- | --- | --- | --- |
+| 96 kHz, no filter (as before) | 12/12 | 1.00 | 99.5% |
+| ADC → 48 kHz | **0/12** | 0.00 | 0.04% |
+| ADC → 44.1 kHz | **0/12** | 0.00 | 0.01% |
+| ADC → 16 kHz | 0/12 | — | INSUFFICIENT_DATA (12/12) |
+
+After the chain the demodulated command sits in 0–8 kHz at the same level as the room audio (−0.08 dB relative), and nothing remains above 18 kHz. The current detectors measure the carrier, and the carrier is gone. Carriers at 25 kHz through a 48 kHz ADC are still caught (11–12/12) only because they sit in the filter's transition band and alias to 23 kHz; at 40 kHz they are not.
+
+### 6c. Real attack recordings: DolphinAttack public set
+
+The DolphinAttack authors' demo dataset (USSLab, 2,934 WAV files, 5 phones × 7 distances × 23 commands, no licence stated) is recorded by the victim phone's own microphone and stored at **16 kHz**. Every clip returns INSUFFICIENT_DATA. This set is the first real-attack benchmark for the baseband detector; it contains no benign recordings, so matched benign captures from the same devices are still needed.
+
+### 6d. Other evasions and look-alikes (48 kHz, no filter)
+
+| Case | Result |
+| --- | --- |
+| Carrier at 15, 16, 17, 17.9 kHz | 0/12 detected: below the 18 kHz out-of-band edge, so the geometric mean is zero |
+| Carrier at 18.1 kHz | 12/12 |
+| Energy above 18 kHz held under 1.09% | 0/12 (costs the attacker ≈ 6 dB of carrier level) |
+| 19 kHz pilot tone (retail beacon) | **12/12 false alarms** |
+| 20–22 kHz power-supply whine | **12/12 false alarms** |
+| Harmonic-rich synth to 22 kHz; keyboard clicks | 0/12 (correctly cleared) |
+
+### 6e. Conclusion
+
+EchoGuard v0.2.0 is a clean, fast, quiet screen for high-rate lab captures that still contain the carrier. On a phone it detects nothing, and current near-ultrasound attacks (16–22 kHz) fall in or beside its blind band. The next milestone is a detector for the demodulated residue in 0–8 kHz — sub-100 Hz "ghost" energy, aliased carrier lines, squared-envelope modulation structure, missing glottal source — corroborated so that benign ultrasound (beacons, PSU whine) no longer scores.
 
 ## Reproduce
 
