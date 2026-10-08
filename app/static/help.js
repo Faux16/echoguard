@@ -69,6 +69,13 @@ const HELP = {
   "keyboard shortcuts": { t: "Keyboard shortcuts", d: "", r: "" },
   "about": { t: "About", d: "", r: "" },
 
+  // compare rows
+  "cmp:rate": { t: "Sample rate", d: "How many samples per second the capture holds; the highest frequency it can contain is half of that (Nyquist).", r: "Two captures at different rates are not directly comparable above the lower Nyquist. Below 36 kHz the engine cannot assess the ultrasonic band at all." },
+  "cmp:duration": { t: "Duration", d: "Length of the capture; it is scored in overlapping 1 s windows and the worst window decides.", r: "A longer clean capture gives more chances for a false alarm; a longer attack gives more chances to catch it." },
+  "rho:a": { t: "ρA — out-of-band energy risk", d: "Risk from the share of energy above 18 kHz: 0 at 1.1 %, 1 at 4.4 % (requires the band to clear −60 dBFS).", r: "" },
+  "rho:b": { t: "ρB — modulated carrier risk", d: "Risk from a narrowband peak above 15 kHz: prominence over the CFAR floor × narrowness × modulation-sideband strength.", r: "A bare tone (no sidebands) is capped near 0.05 regardless of how loud it is." },
+  "live:window": { t: "Live window", d: "One second of audio scored on its own by the engine, exactly as a file would be.", r: "Open it in Analyze for the full breakdown, or save it to History to keep it." },
+
   // meters (dynamic values are appended by the console)
   "meter:oob_ratio": { t: "Share of energy above 18 kHz", d: "Energy in 18 kHz–Nyquist divided by total energy, from the Welch spectrum.", r: "Risk ρA rises from 0 at 1.1 % to 1 at 4.4 %; the detector saturates at 10 %. Human voice has essentially nothing here, so a few percent is already striking." },
   "meter:oob_level": { t: "Band level floor", d: "Absolute level of the high band in dBFS.", r: "Below −60 dBFS the band is treated as empty even if its share is high — guards against near-silent recordings where tiny noise dominates the ratio." },

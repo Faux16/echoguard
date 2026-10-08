@@ -337,3 +337,5 @@ tbody tr.click{cursor:pointer} tbody tr.click:hover{background:var(--hover)}
   .pagehead .acts{margin-left:0;width:100%}.dropzone .actions{flex-wrap:wrap}.gopts{grid-template-columns:1fr}.code{white-space:pre-wrap;word-break:break-all}
 }
 @media print{.rail,.appbar,.toasts{display:none!important}.app{grid-template-columns:1fr}body{background:#fff}}
+
+.log .e.click{cursor:pointer;border-radius:6px;margin:0 -6px;padding-left:6px;padding-right:6px} .log .e.click:hover{background:var(--hover)}

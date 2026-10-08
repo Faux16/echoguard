@@ -905,9 +905,9 @@ async function toggleRecord() {
 }
 
 /* ============================================================ live monitor */
-const live = { mic: null, sim: null, hist: [], unseen: 0, busy: false, wf: null, wfF: 240, fmax: 24000, cols: 2400, per: 40, flags: [] };
+const live = { mic: null, sim: null, hist: [], unseen: 0, busy: false, wf: null, wfF: 240, fmax: 24000, cols: 2400, per: 40, flags: [], seq: 0, sel: null };
 function resetLive() {
-  live.hist = []; live.unseen = 0; live.flags = []; $("#lLog").innerHTML = '<div class="faint ph">No events yet.</div>';
+  live.hist = []; live.unseen = 0; live.flags = []; live.sel = null; $("#lDetail").innerHTML = ""; $("#lLog").innerHTML = '<div class="faint ph">No events yet.</div>';
   live.wf = document.createElement("canvas"); live.wf.width = live.cols; live.wf.height = live.wfF;
   const c = live.wf.getContext("2d"); c.fillStyle = "#04060c"; c.fillRect(0, 0, live.cols, live.wfF);
   $("#lN").textContent = 0; $("#lF").textContent = 0; renderLiveStats(); drawWaterfall(); drawStrip();
@@ -955,7 +955,8 @@ async function liveScore(x, sr) {
 }
 function liveAdd(d, blob) {
   const now = new Date().toLocaleTimeString([], { hour12: false }), v = VERDICT[d.verdict];
-  live.hist.push({ v: d.verdict, r: d.overall_risk, t: now }); if (live.hist.length > 60) live.hist.shift();
+  const entry = { id: ++live.seq, v: d.verdict, r: d.overall_risk, t: now, d, blob };
+  live.hist.push(entry); if (live.hist.length > 60) live.hist.shift();
   const sp = d.spectrogram, [F, T] = sp.shape, g = decodeGrid(sp); live.fmax = sp.fmax_hz;
   const wc = live.wf.getContext("2d"); wc.drawImage(live.wf, -live.per, 0);
   const img = wc.createImageData(live.per, live.wfF), dd = img.data;
@@ -971,7 +972,7 @@ function liveAdd(d, blob) {
     if ($("#lLog .ph")) $("#lLog").innerHTML = "";
     const fc = carrierFound(d) ? d.annotations.carrier_peak_hz : null;
     live.flags.push({ d, blob, t: now }); if (live.flags.length > 30) live.flags.shift();
-    $("#lLog").insertAdjacentHTML("afterbegin", `<div class="e"><span class="t">${now}</span><div><span class="tag sm t-${d.verdict}"><span class="d"></span>${v.label}</span>
+    $("#lLog").insertAdjacentHTML("afterbegin", `<div class="e click" data-live="${entry.id}" title="Show this window"><span class="t">${now}</span><div><span class="tag sm t-${d.verdict}"><span class="d"></span>${v.label}</span>
       <div class="faint" style="margin-top:4px">risk ${d.overall_risk.toFixed(2)}${fc ? ` · carrier ${(fc / 1000).toFixed(1)} kHz` : ""}${d.annotations.carrier_sideband_db != null ? ` · sidebands ${d.annotations.carrier_sideband_db.toFixed(0)} dB` : ""}</div></div></div>`);
     if (currentView !== "live") { live.unseen++; updateBadge(); }
   }
@@ -991,6 +992,8 @@ function drawWaterfall() {
   ctx.font = "10.5px Inter"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
   freqTicks(fmax, "lin").forEach(f => { const y = yOf(f); ctx.strokeStyle = "rgba(255,255,255,.07)"; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.stroke(); ctx.fillStyle = ax; ctx.fillText(kHz(f), L - 7, y); });
   if (fmax > 18000) { const y = yOf(18000); ctx.strokeStyle = "#f87171"; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.stroke(); ctx.setLineDash([]); }
+  if (live.sel != null) { const k = live.hist.findIndex(h => h.id === live.sel); if (k >= 0) { const bw = pw / 60, j = 60 - live.hist.length + k;
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.strokeRect(L + j * bw + .75, T + .75, bw - 1.5, ph - 1.5); ctx.lineWidth = 1; } }
   ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = ax;
   [60, 45, 30, 15, 0].forEach(s => ctx.fillText(s ? `−${s} s` : "now", L + (1 - s / 60) * pw, T + ph + 6));
   if (!live.hist.length) { ctx.fillStyle = "rgba(169,180,200,.6)"; ctx.font = "13px Inter"; ctx.textBaseline = "middle"; ctx.fillText("Waiting for audio", L + pw / 2, T + ph / 2); }
@@ -1001,9 +1004,28 @@ function drawStrip() {
   ctx.font = "10.5px Inter"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
   [[0, "0"], [.33, ".33"], [.66, ".66"], [1, "1"]].forEach(([v, l]) => { ctx.strokeStyle = v % 1 ? ax : gr; ctx.globalAlpha = v % 1 ? .35 : 1; ctx.setLineDash(v % 1 ? [3, 4] : []);
     ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(L + pw, Y(v)); ctx.stroke(); ctx.globalAlpha = 1; ctx.fillStyle = ax; ctx.fillText(l, L - 7, Y(v)); });
-  ctx.setLineDash([]); const bw = pw / 60;
-  live.hist.forEach((x, i) => { const j = 60 - live.hist.length + i, h = x.v === "INSUFFICIENT_DATA" ? .08 : Math.max(.03, x.r);
-    ctx.fillStyle = VERDICT[x.v].hex; ctx.globalAlpha = .85; roundRect(ctx, L + j * bw + 1, Y(h), Math.max(1, bw - 2), Y(0) - Y(h), 2); ctx.fill(); ctx.globalAlpha = 1; });
+  ctx.setLineDash([]); const bw = pw / 60; live.hits = [];
+  live.hist.forEach((x, i) => { const j = 60 - live.hist.length + i, h = x.v === "INSUFFICIENT_DATA" ? .08 : Math.max(.03, x.r), sel = live.sel === x.id;
+    ctx.fillStyle = VERDICT[x.v].hex; ctx.globalAlpha = sel ? 1 : .8; roundRect(ctx, L + j * bw + 1, Y(h), Math.max(1, bw - 2), Y(0) - Y(h), 2); ctx.fill(); ctx.globalAlpha = 1;
+    if (sel) { ctx.strokeStyle = TXT(); ctx.lineWidth = 1.5; roundRect(ctx, L + j * bw - .5, Y(h) - 2, bw + 1, Y(0) - Y(h) + 4, 3); ctx.stroke(); ctx.lineWidth = 1; }
+    live.hits.push({ x0: L + j * bw, x1: L + (j + 1) * bw, id: x.id }); });
+}
+/* click a column of the waterfall, a bar of the strip, or an event-log row to open that second */
+function liveHit(e) { const c = e.currentTarget, x = e.clientX - c.getBoundingClientRect().left, h = (live.hits || []).find(h => x >= h.x0 && x <= h.x1); return h && h.id; }
+$("#ls").addEventListener("click", e => { const id = liveHit(e); if (id) selectLive(id); });
+$("#wf").addEventListener("click", e => { const id = liveHit(e); if (id) selectLive(id); });
+$("#lLog").addEventListener("click", e => { const r = e.target.closest("[data-live]"); if (r) selectLive(+r.dataset.live); });
+function selectLive(id) {
+  const x = live.hist.find(h => h.id === id); if (!x) return toast("That window has scrolled out of the 60 s buffer", "info");
+  live.sel = id === live.sel ? null : id; drawWaterfall(); drawStrip();
+  $$("#lLog .e").forEach(el => el.style.background = +el.dataset.live === live.sel ? "var(--accent-soft)" : "");
+  if (!live.sel) { $("#lDetail").innerHTML = ""; return; }
+  const d = x.d, a = d.annotations, fc = carrierFound(d) ? a.carrier_peak_hz : null;
+  $("#lDetail").innerHTML = `<div class="winsel"><span>Window at <b>${x.t}</b> ${helpBtn("live:window")}</span>${vtag(x.v)}<span>risk <b>${x.r.toFixed(2)}</b></span>
+    <span class="faint">above 18 kHz <b>${fmtPct(a.oob_ratio)}</b></span><span class="faint">carrier <b>${fc ? (fc / 1000).toFixed(2) + " kHz" : "none"}</b></span><span class="faint">sidebands <b>${a.carrier_sideband_db == null ? "—" : a.carrier_sideband_db.toFixed(0) + " dB"}</b></span>
+    <span class="spacer"></span><button class="btn sm primary" id="lOpen">Open in Analyze</button><button class="btn sm ghost" id="lSaveOne">Save to history</button></div>`;
+  $("#lOpen").onclick = () => analyzeBlob(x.blob, `live_${x.t.replace(/:/g, "")}.wav`, d, { source: "live" });
+  $("#lSaveOne").onclick = async () => { if (await saveCapture(recordFrom(d, x.blob, `live_${x.t.replace(/:/g, "")}.wav`, { source: "live", tags: ["live"] }))) toast("Saved to history", "ok"); };
 }
 
 /* ============================================================ shared table bits */
@@ -1104,16 +1126,18 @@ function renderCompare() {
   if (!A || !B) { $("#cmpDiff").innerHTML = `<div class="empty">Select two captures to see the differences.</div>`; return; }
   const n = (x, f) => x == null ? "—" : f(x), delta = (a, b, f, lowerBetter = true) => { if (a == null || b == null) return "—"; const d = b - a; const cls = d === 0 ? "" : (d < 0) === lowerBetter ? "better" : "worse"; return `<span class="${cls}">${d > 0 ? "+" : ""}${f(d)}</span>`; };
   const rows = [
-    ["Verdict", VERDICT[A.verdict]?.label, VERDICT[B.verdict]?.label, A.verdict === B.verdict ? "same" : `<span class="${RANK[B.verdict] > RANK[A.verdict] ? "worse" : "better"}">${RANK[B.verdict] > RANK[A.verdict] ? "escalated" : "de-escalated"}</span>`],
-    ["Risk score", A.risk.toFixed(2), B.risk.toFixed(2), delta(A.risk, B.risk, x => x.toFixed(2))],
-    ["Energy above 18 kHz", fmtPct(A.oob), fmtPct(B.oob), delta(A.oob, B.oob, x => (x * 100).toFixed(2) + " pt")],
-    ["Carrier", n(A.car, x => (x / 1000).toFixed(2) + " kHz"), n(B.car, x => (x / 1000).toFixed(2) + " kHz"), A.car && B.car ? delta(A.car, B.car, x => (x / 1000).toFixed(2) + " kHz", true).replace(/class="[^"]*"/, 'class=""') : "—"],
-    ["Sidebands", n(A.sb, x => x.toFixed(0) + " dB"), n(B.sb, x => x.toFixed(0) + " dB"), delta(A.sb, B.sb, x => x.toFixed(0) + " dB")],
-    ["Sample rate", (A.sr / 1000).toFixed(1) + " kHz", (B.sr / 1000).toFixed(1) + " kHz", A.sr === B.sr ? "same" : ""],
-    ["Duration", A.dur.toFixed(2) + " s", B.dur.toFixed(2) + " s", delta(A.dur, B.dur, x => x.toFixed(2) + " s", false).replace(/class="[^"]*"/, 'class=""')],
-    ...["out_of_band_energy", "carrier_peak"].map(k => { const fa = A.data.findings.find(f => f.name === k), fb = B.data.findings.find(f => f.name === k); return [k === "carrier_peak" ? "ρB carrier" : "ρA out-of-band", fa ? fa.risk.toFixed(2) : "—", fb ? fb.risk.toFixed(2) : "—", fa && fb ? delta(fa.risk, fb.risk, x => x.toFixed(2)) : "—"]; }),
+    ["Verdict", VERDICT[A.verdict]?.label, VERDICT[B.verdict]?.label, A.verdict === B.verdict ? "same" : `<span class="${RANK[B.verdict] > RANK[A.verdict] ? "worse" : "better"}">${RANK[B.verdict] > RANK[A.verdict] ? "escalated" : "de-escalated"}</span>`, "verdict"],
+    ["Risk score", A.risk.toFixed(2), B.risk.toFixed(2), delta(A.risk, B.risk, x => x.toFixed(2)), "risk score"],
+    ["Energy above 18 kHz", fmtPct(A.oob), fmtPct(B.oob), delta(A.oob, B.oob, x => (x * 100).toFixed(2) + " pt"), "stat:oob"],
+    ["Carrier", n(A.car, x => (x / 1000).toFixed(2) + " kHz"), n(B.car, x => (x / 1000).toFixed(2) + " kHz"), A.car && B.car ? delta(A.car, B.car, x => (x / 1000).toFixed(2) + " kHz", true).replace(/class="[^"]*"/, 'class=""') : "—", "stat:carrier"],
+    ["Sidebands", n(A.sb, x => x.toFixed(0) + " dB"), n(B.sb, x => x.toFixed(0) + " dB"), delta(A.sb, B.sb, x => x.toFixed(0) + " dB"), "stat:sideband"],
+    ["Sample rate", (A.sr / 1000).toFixed(1) + " kHz", (B.sr / 1000).toFixed(1) + " kHz", A.sr === B.sr ? "same" : "", "cmp:rate"],
+    ["Duration", A.dur.toFixed(2) + " s", B.dur.toFixed(2) + " s", delta(A.dur, B.dur, x => x.toFixed(2) + " s", false).replace(/class="[^"]*"/, 'class=""'), "cmp:duration"],
+    ...["out_of_band_energy", "carrier_peak"].map(k => { const fa = A.data.findings.find(f => f.name === k), fb = B.data.findings.find(f => f.name === k); return [k === "carrier_peak" ? "ρB carrier" : "ρA out-of-band", fa ? fa.risk.toFixed(2) : "—", fb ? fb.risk.toFixed(2) : "—", fa && fb ? delta(fa.risk, fb.risk, x => x.toFixed(2)) : "—", k === "carrier_peak" ? "rho:b" : "rho:a"]; }),
   ];
-  $("#cmpDiff").innerHTML = `<table class="diff"><thead><tr><th>Measure</th><th>A · ${esc(A.name)}</th><th>B · ${esc(B.name)}</th><th>B − A</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r[0]}</td><td class="d">${r[1]}</td><td class="d">${r[2]}</td><td class="d">${r[3]}</td></tr>`).join("")}</tbody></table>`;
+  $("#cmpDiff").innerHTML = `<table class="diff"><thead><tr><th>Measure</th><th class="click" data-open="${A.id}" title="Open A in Analyze">A · ${esc(A.name)}</th><th class="click" data-open="${B.id}" title="Open B in Analyze">B · ${esc(B.name)}</th><th>B − A</th></tr></thead><tbody>${rows.map(r => `<tr class="click" data-key="${r[4]}" data-a="${esc(String(r[1]).replace(/<[^>]+>/g, ""))}" data-b="${esc(String(r[2]).replace(/<[^>]+>/g, ""))}" title="What is this measure?"><td>${r[0]}</td><td class="d">${r[1]}</td><td class="d">${r[2]}</td><td class="d">${r[3]}</td></tr>`).join("")}</tbody></table>`;
+  $$("#cmpDiff tbody tr").forEach(tr => tr.onclick = e => { e.stopPropagation(); showPop(tr, tr.dataset.key, `<div class="kv"><span>A</span><b>${esc(tr.dataset.a)}</b></div><div class="kv"><span>B</span><b>${esc(tr.dataset.b)}</b></div>`); });
+  $$("#cmpDiff th[data-open]").forEach(th => { th.style.cursor = "pointer"; th.onclick = () => openRecord(th.dataset.open); });
 }
 function cmpBody(r) {
   const d = r.data, v = VERDICT[r.verdict], tx = narrative(d, ev(d, "out_of_band_energy"), ev(d, "carrier_peak"));

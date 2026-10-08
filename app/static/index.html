@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/console.css?v=10">
+<link rel="stylesheet" href="/static/console.css?v=11">
 <script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
 </head>
 <body>
@@ -127,7 +127,7 @@
         <div class="pagehead"><div><h1>Live monitor</h1><div class="metas"><span class="m"><span class="statusdot" id="lDot"></span><b id="lState">Idle</b></span><span class="m"><b id="lRate">—</b></span><span class="m"><b id="lN">0</b> windows</span><span class="m"><b id="lF">0</b> flagged</span></div></div>
           <div class="acts"><button class="btn ghost" id="simBtn"><span class="ico-slot" data-ico="play"></span>Simulated stream</button><button class="btn primary" id="liveBtn"><span class="ico-slot" data-ico="mic"></span>Start microphone</button></div></div>
         <div class="lgrid">
-          <div class="card"><div class="card-h"><h3>Spectrogram waterfall</h3><span class="sub">last 60 s · 1 s windows scored by the engine</span></div><div class="card-b"><canvas id="wf" class="cv"></canvas><canvas id="ls" class="cv"></canvas></div></div>
+          <div class="card"><div class="card-h"><h3>Spectrogram waterfall</h3><span class="sub">last 60 s · 1 s windows scored by the engine · click a column</span></div><div class="card-b"><canvas id="wf" class="cv" style="cursor:pointer"></canvas><canvas id="ls" class="cv" style="cursor:pointer"></canvas><div id="lDetail"></div></div></div>
           <div class="stack">
             <div class="card"><div class="card-h"><h3>Current window</h3></div><div class="card-b" style="display:grid;place-items:center;gap:10px">
               <div class="ring"><svg viewBox="0 0 132 132"><circle cx="66" cy="66" r="54" fill="none" stroke="var(--track)" stroke-width="11" pathLength="100" stroke-dasharray="75 100" stroke-linecap="round"/><circle id="lArc" cx="66" cy="66" r="54" fill="none" stroke="var(--accent)" stroke-width="11" pathLength="100" stroke-dasharray="0 100" stroke-linecap="round" style="transition:stroke-dasharray .4s"/></svg><div class="val"><b id="lRisk">—</b><span>risk score</span></div></div>
@@ -244,7 +244,7 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
 <div class="toasts" id="toasts"></div>
 <div id="paletteMount"></div>
 <input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
-<script src="/static/help.js?v=10"></script>
-<script src="/static/console.js?v=10"></script>
+<script src="/static/help.js?v=11"></script>
+<script src="/static/console.js?v=11"></script>
 </body>
 </html>
