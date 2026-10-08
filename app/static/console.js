@@ -125,6 +125,8 @@ async function health() {
     const r = await fetch("/api/health"); const d = await r.json(); engine.ok = true; engine.info = d;
     $("#led").classList.remove("off"); $("#engState").textContent = "Engine online"; $("#engSub").textContent = "echoguard " + d.version + " · " + d.detectors.length + " detectors";
     $("#footEng").textContent = `EchoGuard ${d.version} · engine online · up ${fmtUptime(d.uptime_s)}`;
+    if (d.retention && !engine.retentionShown) { engine.retentionShown = true; toast("Field-test mode: this server keeps a copy of every upload and its result", "info", 6000); }
+    $("#footEng").textContent += d.retention ? " · uploads retained for testing" : "";
   } catch { engine.ok = false; $("#led").classList.add("off"); $("#engState").textContent = "Engine offline"; $("#engSub").textContent = "start the server"; $("#footEng").textContent = "EchoGuard · engine offline"; }
   $("#footLed").classList.toggle("off", !engine.ok); renderFootPolicy();
   renderEngineCard();

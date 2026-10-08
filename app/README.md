@@ -73,10 +73,28 @@ curl -F file=@clip.wav -F action=critical -F command="unlock the door" \
      http://127.0.0.1:8000/api/gate
 ```
 
+## Field testing: retaining uploads
+
+By default the server is stateless. For a field test where you want to inspect
+what testers sent, set `ECHOGUARD_CAPTURE_DIR`; every `/api/scan` and
+`/api/gate` upload is then written there as `<utc>_<client>_<kind>_<name>.wav`
+plus a `.json` with the engine result and request metadata. `/api/health`
+reports `retention: true` and the console tells users on load.
+
+```bash
+ECHOGUARD_CAPTURE_DIR=./captures uvicorn app.server:app --host 0.0.0.0
+python -m app.review_captures ./captures          # one line per upload + counts
+```
+
+Serving on the network: bind `--host 0.0.0.0`. Microphone capture needs a
+secure context, so put HTTPS in front for other machines, e.g.
+`caddy reverse-proxy --from https://<lan-ip>:8443 --to http://127.0.0.1:8000 --internal-certs`
+(testers accept the self-signed certificate once).
+
 ## Notes
 
 - Verdicts match `echoguard scan`; the service calls the same `Pipeline`.
-- Stateless: uploads (max 25 MB) and live windows are scored in memory and discarded.
+- Stateless unless `ECHOGUARD_CAPTURE_DIR` is set: uploads (max 25 MB) and live windows are scored in memory and discarded.
 - The spectrogram is computed server-side (STFT, 1024-point Hann, 75% overlap) and
   sent as a compact 8-bit grid; the browser colours, rescales and draws it.
 - For a deployment, run behind a reverse proxy over HTTPS (browsers only allow

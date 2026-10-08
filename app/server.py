@@ -19,11 +19,13 @@ import base64
 import io
 import json
 import os
+import re
 import time
+from datetime import datetime, timezone
 from typing import Optional
 
 import numpy as np
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from scipy import signal as sps
@@ -55,6 +57,9 @@ THRESHOLDS = {
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(HERE, "static")
+# Opt-in retention for field testing: when set, every upload and its result are written
+# here. Off by default (stateless); the UI tells users when it is on.
+CAPTURE_DIR = os.environ.get("ECHOGUARD_CAPTURE_DIR") or None
 MAX_BYTES = 25 * 1024 * 1024          # 25 MB upload cap
 MAX_PSD_POINTS = 1024                  # downsample the spectrum for the plot
 
@@ -97,7 +102,7 @@ def parse_policy(raw: Optional[str]) -> Optional[dict]:
     return out
 
 
-def _read_upload(upload: UploadFile) -> tuple[np.ndarray, int]:
+def _read_upload(upload: UploadFile) -> tuple[np.ndarray, int, bytes]:
     raw = upload.file.read(MAX_BYTES + 1)
     if len(raw) > MAX_BYTES:
         raise HTTPException(413, "file too large (max 25 MB)")
@@ -107,7 +112,26 @@ def _read_upload(upload: UploadFile) -> tuple[np.ndarray, int]:
         sr, data = wavfile.read(io.BytesIO(raw))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(400, f"could not read WAV: {exc}") from exc
-    return to_float_mono(np.asarray(data)).astype(np.float64), int(sr)
+    return to_float_mono(np.asarray(data)).astype(np.float64), int(sr), raw
+
+
+def _retain(kind: str, request: Request, filename: Optional[str], raw: bytes, result: dict) -> Optional[str]:
+    """Write the upload and a light copy of its result to CAPTURE_DIR (if enabled)."""
+    if not CAPTURE_DIR:
+        return None
+    os.makedirs(CAPTURE_DIR, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%f")[:-3] + "Z"
+    client = (request.client.host if request.client else "unknown").replace(":", "_")
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", os.path.basename(filename or "upload.wav"))[:80]
+    base = os.path.join(CAPTURE_DIR, f"{stamp}_{client}_{kind}_{safe}")
+    with open(base + ".wav", "wb") as fh:
+        fh.write(raw)
+    light = {k: v for k, v in result.items() if k not in ("spectrogram", "psd", "waveform")}
+    light["_meta"] = {"received_utc": stamp, "client": client, "kind": kind,
+                      "user_agent": request.headers.get("user-agent", ""), "bytes": len(raw)}
+    with open(base + ".json", "w", encoding="utf-8") as fh:
+        json.dump(light, fh, indent=1, default=str)
+    return base
 
 
 def _psd_for_plot(signal: np.ndarray, sr: int) -> dict:
@@ -190,10 +214,11 @@ def _capture_note(verdict: str, sr: int) -> str:
 
 
 @app.post("/api/scan")
-async def api_scan(file: UploadFile = File(...),
+async def api_scan(request: Request,
+                   file: UploadFile = File(...),
                    window: Optional[float] = Form(1.0),
                    hop: float = Form(0.5)) -> JSONResponse:
-    signal, sr = _read_upload(file)
+    signal, sr, raw = _read_upload(file)
     t0 = time.perf_counter()
     try:
         if window and window > 0:
@@ -218,11 +243,13 @@ async def api_scan(file: UploadFile = File(...),
         {"start_sec": round(float(x.start_sec), 3), "verdict": x.verdict,
          "overall_risk": round(float(x.overall_risk), 3)} for x in windows
     ]
+    _retain("scan", request, file.filename, raw, payload)
     return JSONResponse(payload)
 
 
 @app.post("/api/gate")
-async def api_gate(file: UploadFile = File(...),
+async def api_gate(request: Request,
+                   file: UploadFile = File(...),
                    action: str = Form(...),
                    command: Optional[str] = Form(None),
                    window: Optional[float] = Form(1.0),
@@ -233,7 +260,7 @@ async def api_gate(file: UploadFile = File(...),
     except ValueError:
         raise HTTPException(422, f"action must be one of {[s.value for s in ActionSensitivity]}") from None
     custom = parse_policy(policy)
-    signal, sr = _read_upload(file)
+    signal, sr, raw = _read_upload(file)
     gate = ConfirmationGate(policy=custom, window_sec=(window or None), hop_sec=hop)
     try:
         result = gate.evaluate(signal, sr, sensitivity, command=command)
@@ -243,6 +270,7 @@ async def api_gate(file: UploadFile = File(...),
     payload["decisions"] = [d.value for d in GateDecision]
     payload["policy_source"] = "custom" if custom else "default"
     payload["capture_note"] = _capture_note(result.verdict, sr)
+    _retain("gate", request, file.filename, raw, {**payload, "filename": file.filename, "action": action, "policy": policy})
     return JSONResponse(payload)
 
 
@@ -255,6 +283,7 @@ async def health() -> dict:
         "thresholds": THRESHOLDS,
         "default_policy": default_policy_json(),
         "verdicts": list(VERDICTS),
+        "retention": bool(CAPTURE_DIR),
     }
 
 
