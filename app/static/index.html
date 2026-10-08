@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/console.css?v=9">
+<link rel="stylesheet" href="/static/console.css?v=10">
 <script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
 </head>
 <body>
@@ -98,9 +98,9 @@
             <div class="v-r" id="vStats"></div>
           </div>
           <div class="agrid">
-            <div class="card"><div class="card-h"><h3>Spectrogram</h3><span class="sub" id="specSub"></span><span class="zoomnote hidden" id="zoomNote"></span><div class="right"><span class="readout" id="readout">hover: time · freq · dB</span><div class="seg" id="scaleSeg"><button data-s="lin" class="on">Linear</button><button data-s="log">Log</button></div></div></div>
+            <div class="card"><div class="card-h"><h3>Spectrogram</h3><span class="sub" id="specSub"></span><span class="zoomnote hidden" id="zoomNote"></span><div class="right"><div class="seg" id="scaleSeg"><button data-s="lin" class="on">Linear</button><button data-s="log">Log</button></div></div></div>
               <div class="card-b"><canvas id="ov" class="cv"></canvas><div class="spec-wrap"><canvas id="spec" class="cv"></canvas></div>
-                <div class="speclegend"><i><span class="swl"></span>18 kHz out-of-band edge</i><i><span class="swc"></span>detected carrier</i><i>shaded: band the out-of-band detector measures</i></div></div></div>
+                <div class="speclegend"><i><span class="swl"></span>18 kHz out-of-band edge</i><i><span class="swc"></span>detected carrier</i><i>shaded: band the out-of-band detector measures</i><span class="readout" id="readout">hover: time · freq · dB</span></div></div></div>
             <div class="stack">
               <div class="card"><div class="card-h"><h3>Detection breakdown</h3><span class="sub" id="bdSub">engine thresholds · click a meter to learn more</span></div><div class="card-b"><div id="inspectHead"></div><div id="breakdown"></div></div></div>
               <div class="card"><div class="card-h"><h3>Decision map</h3><span class="sub" id="dmapSub">where this capture lands</span></div><div class="card-b"><canvas id="dmap" class="cv"></canvas></div></div>
@@ -244,7 +244,7 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
 <div class="toasts" id="toasts"></div>
 <div id="paletteMount"></div>
 <input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
-<script src="/static/help.js?v=9"></script>
-<script src="/static/console.js?v=9"></script>
+<script src="/static/help.js?v=10"></script>
+<script src="/static/console.js?v=10"></script>
 </body>
 </html>
