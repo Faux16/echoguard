@@ -61,6 +61,9 @@ def test_scan_returns_spectrogram_and_waveform():
     assert sg["vmax_db"] > sg["vmin_db"]
     assert d["waveform"] and max(d["waveform"]) == pytest.approx(1.0)
     assert d["analysis_ms"] >= 0
+    t = d["thresholds"]
+    assert t["oob_edge_hz"] == 18000.0 and t["suspicious_risk"] == 0.33 and t["high_risk"] == 0.66
+    assert t["sideband_floor_db"] < t["sideband_full_db"] < 0
 
 
 def test_scan_benign_clear():

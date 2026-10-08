@@ -31,9 +31,26 @@ from scipy.io import wavfile
 from echoguard import ConfirmationGate, Pipeline
 from echoguard.audio import to_float_mono
 from echoguard.detectors._dsp import compute_spectrum
+from echoguard.detectors import modulation as _mod
+from echoguard.detectors import ultrasonic as _oob
 from echoguard.detectors.ultrasonic import NEAR_ULTRASOUND_LOW
 from echoguard.gate import ActionSensitivity, GateDecision
-from echoguard.pipeline import INSUFFICIENT_DATA, InvalidInput
+from echoguard.pipeline import HIGH_RISK_RISK, INSUFFICIENT_DATA, SUSPICIOUS_RISK, InvalidInput
+
+# The engine's own constants, so the UI's meters show real thresholds rather than guesses.
+THRESHOLDS = {
+    "suspicious_risk": SUSPICIOUS_RISK,
+    "high_risk": HIGH_RISK_RISK,
+    "oob_edge_hz": _oob.NEAR_ULTRASOUND_LOW,
+    "oob_saturation_ratio": _oob.SATURATION_RATIO,
+    "oob_min_level_dbfs": _oob.MIN_BAND_LEVEL_DBFS,
+    "carrier_band_low_hz": _mod.HIGH_BAND_LOW,
+    "carrier_prominence_saturation_db": _mod.PROMINENCE_DB_SATURATION,
+    "narrow_floor": _mod.NARROW_FLOOR,
+    "narrow_full": _mod.NARROW_FULL,
+    "sideband_floor_db": _mod.SIDEBAND_FLOOR_DB,
+    "sideband_full_db": _mod.SIDEBAND_FULL_DB,
+}
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(HERE, "static")
@@ -162,6 +179,7 @@ async def api_scan(file: UploadFile = File(...),
     payload["waveform"] = _waveform(signal)
     payload["capture_note"] = _capture_note(report.verdict, sr)
     payload["analysis_ms"] = analysis_ms
+    payload["thresholds"] = THRESHOLDS
     payload["windows"] = [
         {"start_sec": round(float(x.start_sec), 3), "verdict": x.verdict,
          "overall_risk": round(float(x.overall_risk), 3)} for x in windows
@@ -193,7 +211,7 @@ async def api_gate(file: UploadFile = File(...),
 
 @app.get("/api/health")
 async def health() -> dict:
-    return {"status": "ok", "engine": "echoguard", "version": app.version}
+    return {"status": "ok", "engine": "echoguard", "version": app.version, "thresholds": THRESHOLDS}
 
 
 @app.get("/")

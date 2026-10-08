@@ -5,605 +5,241 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EchoGuard Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg:#05070e; --panel:rgba(255,255,255,.028); --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.16);
-    --ink:#eaf0fb; --mut:#8a94a9; --dim:#58637a;
-    --cyan:#38bdf8; --blue:#2f7bf6; --grn:#2ee6a6; --amb:#f6b73c; --red:#ff5a6a;
-    --glow:0 0 24px rgba(56,189,248,.14);
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;min-height:100%}
-  body{
-    background:
-      radial-gradient(1200px 700px at 85% -10%, rgba(47,123,246,.11), transparent 60%),
-      radial-gradient(900px 600px at 0% 100%, rgba(46,230,166,.06), transparent 55%),
-      var(--bg);
-    background-attachment:fixed;
-    color:var(--ink); font:13.5px/1.5 Inter,system-ui,sans-serif; letter-spacing:.2px; -webkit-font-smoothing:antialiased;
-  }
-  .mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
-
-  /* shell */
-  .shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
-  .rail{border-right:1px solid var(--line);padding:18px 14px;position:sticky;top:0;height:100vh;
-    background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));backdrop-filter:blur(8px);display:flex;flex-direction:column}
-  .brand{display:flex;align-items:center;gap:10px;padding:2px 6px 18px}
-  .logo{width:28px;height:28px;border-radius:8px;background:conic-gradient(from 210deg,var(--blue),var(--cyan),var(--grn),var(--blue));box-shadow:var(--glow);position:relative;flex:none}
-  .logo::after{content:"";position:absolute;inset:7px;border-radius:4px;background:var(--bg)}
-  .brand b{font-size:14.5px;letter-spacing:.8px;display:block}
-  .brand span{color:var(--mut);font-size:10px;letter-spacing:1.4px;text-transform:uppercase}
-  .navlbl{font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--dim);padding:10px 8px 6px}
-  .nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:var(--mut);text-decoration:none;cursor:pointer;margin-bottom:2px;border:1px solid transparent}
-  .nav a:hover{background:rgba(255,255,255,.04);color:var(--ink)}
-  .nav a.on{background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.28);color:var(--ink)}
-  .nav svg{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6}
-  .railfoot{margin-top:auto;font-family:"IBM Plex Mono";font-size:10.5px;color:var(--dim);padding:8px;line-height:1.7}
-  .railfoot .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--grn);box-shadow:0 0 8px var(--grn);margin-right:6px}
-  .main{padding:16px 22px 40px;min-width:0}
-  .view{display:none} .view.on{display:block}
-
-  /* top bar */
-  .top{display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:16px;
-    background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));border:1px solid var(--line);border-radius:14px}
-  .top h1{margin:0;font-size:15px;font-weight:600}
-  .top .sub{color:var(--mut);font-size:12px}
-  .chips{display:flex;gap:8px;flex-wrap:wrap}
-  .chip{font-family:"IBM Plex Mono";font-size:11px;color:var(--mut);padding:4px 9px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.02);white-space:nowrap}
-  .chip b{color:var(--ink);font-weight:500}
-  .spacer{flex:1}
-  .ctrls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  button{font:inherit;cursor:pointer;color:var(--ink);background:rgba(255,255,255,.04);border:1px solid var(--line2);border-radius:10px;padding:8px 13px;transition:.15s;white-space:nowrap}
-  button:hover{background:rgba(255,255,255,.09);border-color:var(--cyan)}
-  button.primary{background:linear-gradient(180deg,var(--blue),#1b5fd6);border-color:transparent;box-shadow:var(--glow)}
-  button.rec{color:var(--red);border-color:rgba(255,90,106,.5)}
-  button.rec.on{background:var(--red);color:#fff}
-  button.ghost{color:var(--mut);background:transparent;border-color:var(--line)}
-  button:disabled{opacity:.45;cursor:default}
-  input[type=file]{display:none}
-  .seg{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  .seg span{font-size:10px;letter-spacing:1.3px;text-transform:uppercase;color:var(--dim);padding:0 9px}
-  .seg button{border:0;border-left:1px solid var(--line);border-radius:0;background:transparent;color:var(--mut);padding:8px 11px}
-  .seg button:hover{color:var(--ink);background:rgba(255,255,255,.06)}
-  .top .ctrls{flex-wrap:nowrap}
-
-  /* cards */
-  .grid{display:grid;grid-template-columns:1fr 330px;gap:16px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(6px);min-width:0}
-  .hd{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--line);gap:10px}
-  .hd h2{margin:0;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--mut);font-weight:600}
-  .hd .r{font-family:"IBM Plex Mono";font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .bd{padding:14px}
-  .speccard{display:flex;flex-direction:column}
-  .speccard .bd{flex:1;display:flex;flex-direction:column}
-  .cv{display:block;width:100%}
-  #wave{height:46px}
-  .specwrap{position:relative;flex:1;min-height:400px;margin-top:6px}
-  #spec{position:absolute;inset:0;height:100%;border-radius:8px}
-  .legend{display:flex;gap:16px;align-items:center;margin-top:9px;font-size:11px;color:var(--mut);flex-wrap:wrap}
-  .legend i{font-style:normal;display:flex;align-items:center;gap:6px}
-  .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
-  .heatbar{width:120px;height:9px;border-radius:3px;background:linear-gradient(90deg,#05070d,#0c2a4a,#156fb8,#22c3e6,#e8d24a,#ff8c42,#fff2e0)}
-
-  .verdict{display:flex;flex-direction:column;align-items:center;padding:4px 0 0}
-  .gauge{position:relative;width:200px;height:128px}
-  .gauge .val{position:absolute;left:0;right:0;top:66px;text-align:center}
-  .gauge .val b{display:block;font-family:"IBM Plex Mono";font-size:32px;line-height:1;font-weight:600}
-  .gauge .val span{font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--mut)}
-  .vbadge{font-weight:700;letter-spacing:.8px;font-size:13.5px;padding:5px 14px;border-radius:9px;background:#39414f}
-  .note{color:var(--mut);font-size:11.5px;margin-top:10px;text-align:center;padding:0 6px}
-  .tr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
-  .tr:last-child{border-bottom:0}
-  .tr .k{color:var(--mut);font-size:11.5px}
-  .tr .v{font-family:"IBM Plex Mono";font-size:12.5px}
-  .tr .v u{text-decoration:none;color:var(--dim);font-size:10px;margin-left:3px}
-  .eq{font-family:"IBM Plex Mono";font-size:12px;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:9px;padding:10px 12px;line-height:1.85}
-  .eq .op{color:var(--cyan)} .eq .nm{color:var(--amb)} .eq .cm{color:var(--mut)}
-
-  .row3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:16px;margin-top:16px}
-  #psd{height:160px}
-  .timeline{display:flex;height:26px;border-radius:7px;overflow:hidden;border:1px solid var(--line)}
-  .timeline>div{flex:1}
-  .seg-CLEAR{background:#1c6f4d}.seg-SUSPICIOUS{background:#9a7320}.seg-HIGH_RISK{background:#9a2f3a}.seg-INSUFFICIENT_DATA{background:#39414f}
-  .tlnote{color:var(--mut);font-size:11px;margin-top:7px}
-  .opts{display:flex;gap:7px;margin:2px 0 12px}
-  .opt{flex:1;text-align:center;padding:8px 6px;border:1px solid var(--line);border-radius:9px;color:var(--mut);cursor:pointer;font-size:12px;user-select:none}
-  .opt.sel{border-color:var(--cyan);color:var(--ink);background:rgba(56,189,248,.08)}
-  .decision{display:inline-block;font-weight:700;letter-spacing:.8px;padding:7px 16px;border-radius:9px;color:#06110c}
-  .d-allow{background:var(--grn)} .d-confirm{background:var(--amb)} .d-block{background:var(--red);color:#fff}
-  .foot{display:flex;gap:18px;align-items:center;margin-top:16px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;color:var(--dim);font-family:"IBM Plex Mono";font-size:11px;background:rgba(255,255,255,.015);flex-wrap:wrap}
-  .err{color:var(--red);font-size:12.5px;margin-top:10px;font-family:"IBM Plex Mono"}
-  .hidden{display:none!important}
-  .empty{color:var(--mut);text-align:center;padding:70px 10px;font-size:13px;line-height:1.8}
-
-  /* live */
-  .live{display:grid;grid-template-columns:1fr 330px;gap:16px}
-  #lstrip{height:220px}
-  .log{font-family:"IBM Plex Mono";font-size:11.5px;max-height:260px;overflow:auto}
-  .log div{padding:5px 0;border-bottom:1px dashed var(--line);display:flex;gap:10px}
-  .log .t{color:var(--dim);width:58px;flex:none}
-  .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dim);margin-right:8px}
-  .pulse.on{background:var(--red);box-shadow:0 0 10px var(--red);animation:pl 1s infinite}@keyframes pl{50%{opacity:.35}}
-
-  /* batch + tables */
-  .drop{border:1.5px dashed var(--line2);border-radius:14px;padding:30px;text-align:center;color:var(--mut);cursor:pointer;transition:.15s}
-  .drop:hover,.drop.over{border-color:var(--cyan);background:rgba(56,189,248,.05);color:var(--ink)}
-  table{width:100%;border-collapse:collapse;font-size:12.5px}
-  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-  th{color:var(--mut);font-weight:600;font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;cursor:pointer;user-select:none}
-  td.n{text-align:right;font-family:"IBM Plex Mono"}
-  tbody tr:hover{background:rgba(255,255,255,.03)}
-  tr.click{cursor:pointer}
-  .pill{font-family:"IBM Plex Mono";font-size:10.5px;padding:3px 8px;border-radius:6px;font-weight:600;color:#07140e;display:inline-block}
-  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:16px 0}
-  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-  .stat b{display:block;font-family:"IBM Plex Mono";font-size:22px;font-weight:600}
-  .stat span{color:var(--mut);font-size:10.5px;letter-spacing:1.3px;text-transform:uppercase}
-  .ok{color:var(--grn)} .warn{color:var(--amb)} .bad{color:var(--red)} .muted{color:var(--mut)}
-  code{font-family:"IBM Plex Mono";font-size:12px;color:#cfe3ff;background:rgba(0,0,0,.3);padding:1px 6px;border-radius:5px}
-  pre{font-family:"IBM Plex Mono";font-size:12px;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;color:#cfe3ff;margin:8px 0 0}
-  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  @media(max-width:1100px){.grid,.live,.two{grid-template-columns:1fr}.row3{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:760px){
-    .shell{grid-template-columns:1fr}.rail{position:static;height:auto;padding:12px}
-    .rail .nav{display:flex;flex-wrap:wrap;gap:4px}.rail .navlbl,.railfoot{display:none}.brand{padding-bottom:8px}
-    .main{padding:12px 16px 30px}
-    .top{flex-wrap:wrap}.top .ctrls{flex-wrap:wrap;width:100%}
-    .stats{grid-template-columns:repeat(2,1fr)}
-    table{font-size:11.5px} th,td{padding:7px 6px}
-    .card .bd[style*="padding:0 6px"]{overflow-x:auto}
-  }
-</style>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/console.css?v=2">
 </head>
 <body>
-<div class="shell">
+<div class="app">
+
+  <!-- ======================= RAIL ======================= -->
   <aside class="rail">
-    <div class="brand"><div class="logo"></div><div><b>ECHOGUARD</b><span>injection analysis</span></div></div>
-    <div class="navlbl">Workspace</div>
-    <nav class="nav" id="nav">
-      <a data-v="analyze" class="on"><svg viewBox="0 0 24 24"><path d="M3 12h3l3-8 4 16 3-8h5"/></svg>Analyze</a>
-      <a data-v="live"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7"/></svg>Live monitor</a>
-      <a data-v="batch"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg>Batch</a>
-    </nav>
-    <div class="navlbl">Reference</div>
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4cc3ff"/><stop offset="1" stop-color="#7b8cff"/></linearGradient></defs>
+        <rect x="1" y="1" width="30" height="30" rx="9" fill="#0d1a2e" stroke="url(#lg)" stroke-width="1.4"/>
+        <path d="M9 16h2.2l2-5 3 10 2.2-7 1.4 2H23" fill="none" stroke="url(#lg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div><div class="name">EchoGuard</div><div class="tag">Injection analysis</div></div>
+    </div>
+    <div class="navgroup">Workspace</div>
     <nav class="nav">
-      <a data-v="coverage"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>Coverage</a>
-      <a data-v="api"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>API</a>
+      <a data-v="analyze" class="on"><svg viewBox="0 0 24 24"><path d="M3 12h3l3-7 4 14 3-7h5"/></svg>Analyze</a>
+      <a data-v="live"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4M9.2 9.2a4 4 0 0 0 0 5.6M14.8 9.2a4 4 0 0 1 0 5.6"/></svg>Live monitor<span class="badge hidden" id="liveBadge">0</span></a>
+      <a data-v="batch"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M9 9.5V20"/></svg>Batch</a>
     </nav>
-    <div class="railfoot"><span class="dot"></span>engine online<br><span id="rv">echoguard v0.3.0</span><br>numpy · scipy</div>
+    <div class="navgroup">Reference</div>
+    <nav class="nav">
+      <a data-v="coverage"><svg viewBox="0 0 24 24"><path d="M12 3l7.5 3.2v5.3c0 4.6-3.2 7.8-7.5 9.5-4.3-1.7-7.5-4.9-7.5-9.5V6.2z"/><path d="M9 12l2 2 4-4"/></svg>Coverage</a>
+      <a data-v="api"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 4l-3 16"/></svg>API</a>
+    </nav>
+    <div class="enginecard">
+      <div class="title"><span class="led" id="led"></span><span id="engState">Engine connecting…</span></div>
+      <div class="row"><span>Version</span><b id="engVer">—</b></div>
+      <div class="row"><span>Last analysis</span><b id="engMs">—</b></div>
+      <div class="row"><span>Storage</span><b>none</b></div>
+    </div>
   </aside>
 
-  <main class="main">
-    <!-- ================= ANALYZE ================= -->
-    <section class="view on" id="v-analyze">
-      <div class="top">
-        <div><h1>Analyze a capture</h1><div class="sub">spectrum · verdict · evidence · agent gate</div></div>
-        <div class="chips"><span class="chip">rate <b id="c_sr">—</b></span><span class="chip">nyquist <b id="c_ny">—</b></span><span class="chip">dur <b id="c_dur">—</b></span></div>
-        <div class="spacer"></div>
-        <div class="ctrls">
-          <div class="seg"><span>demo</span><button onclick="demo('attack')">attack</button><button onclick="demo('benign')">benign</button><button onclick="demo('phone')">16 kHz</button></div>
-          <button class="rec" id="recBtn" onclick="toggleRec()">● Record</button>
-          <button class="primary" onclick="$('f').click()">Upload WAV</button>
-          <input id="f" type="file" accept=".wav,audio/wav" onchange="onFile(this.files[0])">
-        </div>
-      </div>
+  <div class="content">
+    <header class="appbar">
+      <div class="crumbs"><span>Workspace</span><span class="sep">/</span><b id="crumbView">Analyze</b><span class="sep hidden" id="crumbSep">/</span><span class="file" id="crumbFile"></span></div>
+      <div class="spacer"></div>
+      <span class="pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7.5 3.2v5.3c0 4.6-3.2 7.8-7.5 9.5-4.3-1.7-7.5-4.9-7.5-9.5V6.2z"/></svg>Defensive · nothing stored</span>
+    </header>
 
-      <div id="empty" class="card"><div class="empty">
-        Load a capture to begin — <b>Upload WAV</b>, <b>Record</b> from the mic, or try a <b>demo</b>.<br>
-        <span style="font-size:11.5px">Capture at ≥ 44.1 kHz to assess the ultrasonic band. Most browsers record at 48 kHz.</span>
-      </div></div>
+    <main>
+      <!-- ======================= ANALYZE ======================= -->
+      <section class="view on" id="v-analyze">
 
-      <div id="app" class="hidden">
-        <div class="grid">
-          <div class="card speccard">
-            <div class="hd"><h2>Spectro-temporal view</h2><span class="r" id="specR">—</span></div>
-            <div class="bd">
-              <canvas id="wave" class="cv"></canvas>
-              <div class="specwrap"><canvas id="spec" class="cv"></canvas></div>
-              <div class="legend">
-                <i><span class="sw" style="background:var(--red)"></span>18 kHz out-of-band edge</i>
-                <i><span class="sw" style="background:var(--amb)"></span>detected carrier</i>
-                <i>low<span class="heatbar"></span>high energy</i>
-              </div>
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
-            <div class="card">
-              <div class="hd"><h2>Verdict</h2><span class="r" id="fnameR">—</span></div>
-              <div class="bd verdict">
-                <div class="gauge">
-                  <svg viewBox="0 0 200 128" width="200" height="128">
-                    <path d="M20 120 A80 80 0 0 1 180 120" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="12" stroke-linecap="round"/>
-                    <path id="gArc" d="" fill="none" stroke="var(--cyan)" stroke-width="12" stroke-linecap="round"/>
-                  </svg>
-                  <div class="val"><b id="gRisk">—</b><span>risk score</span></div>
+        <div id="a-empty">
+          <div class="hero">
+            <div>
+              <h1>Screen a voice capture for<br>inaudible command injection</h1>
+              <p class="lead">EchoGuard inspects a recording for ultrasonic carriers and their modulation sidebands, explains what it found, and tells an action-taking agent whether to allow, confirm or block.</p>
+              <div class="dropzone" id="dz">
+                <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+                <b>Drop a WAV file here</b>
+                <span class="faint" style="font-size:13px">or choose one — capture at 44.1 kHz or higher to assess the ultrasonic band</span>
+                <div class="actions">
+                  <button class="btn primary" data-act="upload"><svg viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Choose file</button>
+                  <button class="btn rec" data-act="record"><span class="dot"></span><span class="rl">Record from mic</span></button>
                 </div>
-                <div class="vbadge" id="vbadge">—</div>
-                <div class="note" id="note"></div>
+              </div>
+              <div class="facts">
+                <div class="fact"><b>Real engine</b>The browser only draws; every number comes from the detector.</div>
+                <div class="fact"><b>Nothing stored</b>Audio is scored in memory and discarded.</div>
+                <div class="fact"><b>Honest limits</b>16 kHz captures return “insufficient data”, never a false clear.</div>
               </div>
             </div>
-            <div class="card"><div class="hd"><h2>Telemetry</h2></div><div class="bd" id="tele"></div></div>
-            <div class="card"><div class="hd"><h2>Decision rule</h2></div><div class="bd"><div class="eq" id="eq"></div></div></div>
+            <div class="samples">
+              <div class="lbl">Try a sample</div>
+              <div class="sample" data-demo="attack"><canvas class="thumb"></canvas><div><h4>Ultrasonic injection</h4><p>Speech-modulated 20 kHz carrier over a voice · 48 kHz</p><span class="tag t-HIGH_RISK"><span class="d"></span>expected high risk</span></div></div>
+              <div class="sample" data-demo="benign"><canvas class="thumb"></canvas><div><h4>Clean speech</h4><p>Voice in a quiet room, no ultrasonic content · 48 kHz</p><span class="tag t-CLEAR"><span class="d"></span>expected clear</span></div></div>
+              <div class="sample" data-demo="beacon"><canvas class="thumb"></canvas><div><h4>Retail beacon</h4><p>Steady 19 kHz pilot tone with speech — a benign look-alike · 48 kHz</p><span class="tag t-CLEAR"><span class="d"></span>expected clear</span></div></div>
+              <div class="sample" data-demo="phone"><canvas class="thumb"></canvas><div><h4>Phone capture</h4><p>The same injection recorded at 16 kHz</p><span class="tag t-INSUFFICIENT_DATA"><span class="d"></span>expected insufficient data</span></div></div>
+            </div>
           </div>
         </div>
 
-        <div class="row3">
-          <div class="card"><div class="hd"><h2>Power spectrum</h2><span class="r">Welch PSD</span></div><div class="bd"><canvas id="psd" class="cv"></canvas></div></div>
-          <div class="card"><div class="hd"><h2>Window timeline</h2><span class="r">1 s / 0.5 s hop</span></div><div class="bd"><div id="timeline" class="timeline"></div><div id="tlnote" class="tlnote"></div></div></div>
-          <div class="card"><div class="hd"><h2>Agent confirmation gate</h2></div><div class="bd">
-            <div class="opts" id="opts">
-              <div class="opt" data-a="routine">Routine</div><div class="opt sel" data-a="sensitive">Sensitive</div><div class="opt" data-a="critical">Critical</div>
+        <div id="a-main" class="hidden">
+          <div class="filebar">
+            <div class="fileico"><svg viewBox="0 0 24 24"><path d="M3 12h2l2-5 3 10 2.5-7 2 4H21"/></svg></div>
+            <div>
+              <h2 id="fName">—</h2>
+              <div class="metas"><span class="meta"><b id="mRate">—</b> sample rate</span><span class="meta">Nyquist <b id="mNyq">—</b></span><span class="meta"><b id="mDur">—</b></span><span class="meta"><b id="mWin">—</b> windows</span></div>
             </div>
-            <button onclick="runGate()">Evaluate action</button>
-            <div id="gateOut" style="margin-top:12px"></div>
-          </div></div>
+            <div class="acts">
+              <button class="btn ghost" data-act="new"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>New capture</button>
+              <button class="btn rec" data-act="record"><span class="dot"></span><span class="rl">Record</span></button>
+              <button class="btn primary" data-act="upload"><svg viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Upload</button>
+            </div>
+          </div>
+
+          <div class="card verdict">
+            <div class="v-l">
+              <span class="tag" id="vTag"><span class="d"></span><span id="vTagT">—</span></span>
+              <h1 id="vTitle">—</h1>
+              <p id="vReason">—</p>
+              <div class="action" id="vAction"><svg viewBox="0 0 24 24" stroke="currentColor"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg><span id="vActionT">—</span></div>
+            </div>
+            <div class="v-m">
+              <div class="ring">
+                <svg viewBox="0 0 132 132"><circle cx="66" cy="66" r="54" fill="none" stroke="#16213a" stroke-width="11" pathLength="100" stroke-dasharray="75 100" stroke-linecap="round"/>
+                  <circle id="ringArc" cx="66" cy="66" r="54" fill="none" stroke="#4cc3ff" stroke-width="11" pathLength="100" stroke-dasharray="0 100" stroke-linecap="round" style="transition:stroke-dasharray .7s cubic-bezier(.2,.8,.2,1)"/></svg>
+                <div class="val"><b id="vRisk">—</b><span>risk score</span></div>
+              </div>
+            </div>
+            <div class="v-r" id="vStats"></div>
+          </div>
+
+          <div class="agrid">
+            <div class="card">
+              <div class="card-h"><h3>Spectrogram</h3><span class="sub" id="specSub"></span>
+                <div class="right"><span class="readout" id="readout">hover for time · frequency · level</span>
+                  <div class="seg" id="scaleSeg"><button data-s="lin" class="on">Linear</button><button data-s="log">Log</button></div></div></div>
+              <div class="card-b">
+                <canvas id="ov" class="cv"></canvas>
+                <div class="spec-wrap"><canvas id="spec" class="cv"></canvas></div>
+                <div class="speclegend"><i><span class="swl"></span>18 kHz out-of-band edge</i><i><span class="swc"></span>detected carrier</i><i>shaded: band the out-of-band detector measures</i></div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+              <div class="card"><div class="card-h"><h3>Detection breakdown</h3><span class="sub">engine thresholds</span></div><div class="card-b" id="breakdown"></div></div>
+              <div class="card"><div class="card-h"><h3>Decision map</h3><span class="sub">where this capture lands</span></div><div class="card-b"><canvas id="dmap" class="cv"></canvas></div></div>
+            </div>
+          </div>
+
+          <div class="bgrid">
+            <div class="card"><div class="card-h"><h3>Power spectrum</h3><span class="sub">Welch estimate</span></div><div class="card-b"><canvas id="psd" class="cv"></canvas></div></div>
+            <div class="card"><div class="card-h"><h3>Window timeline</h3><span class="sub">worst window decides</span></div><div class="card-b"><canvas id="tl" class="cv"></canvas><div class="faint" id="tlNote" style="font-size:12px;margin-top:8px"></div></div></div>
+            <div class="card"><div class="card-h"><h3>Agent confirmation gate</h3></div><div class="card-b">
+              <div class="gopts">
+                <div class="gopt" data-a="routine"><b>Routine</b><span>weather, timers</span></div>
+                <div class="gopt on" data-a="sensitive"><b>Sensitive</b><span>messages, settings</span></div>
+                <div class="gopt" data-a="critical"><b>Critical</b><span>unlock, payments</span></div>
+              </div>
+              <button class="btn" id="gateBtn" style="width:100%;justify-content:center">Evaluate action</button>
+              <div id="gateOut"></div>
+            </div></div>
+          </div>
         </div>
+        <div class="err" id="aErr"></div>
+      </section>
 
-        <div class="foot"><span>engine <b style="color:var(--ink)">echoguard</b> v0.3.0</span><span>backend numpy / scipy</span><span class="spacer"></span><span id="f_ms">—</span><span id="f_sr">—</span></div>
-      </div>
-      <div id="error" class="err"></div>
-    </section>
-
-    <!-- ================= LIVE ================= -->
-    <section class="view" id="v-live">
-      <div class="top">
-        <div><h1><span class="pulse" id="lpulse"></span>Live monitor</h1><div class="sub">microphone scored in 1 s windows by the real engine</div></div>
-        <div class="chips"><span class="chip">rate <b id="l_sr">—</b></span><span class="chip">windows <b id="l_n">0</b></span><span class="chip">flags <b id="l_f">0</b></span></div>
-        <div class="spacer"></div>
-        <div class="ctrls"><button class="primary" id="liveBtn" onclick="toggleLive()">Start monitoring</button></div>
-      </div>
-      <div class="live">
-        <div class="card"><div class="hd"><h2>Risk over time</h2><span class="r">last 60 s</span></div><div class="bd"><canvas id="lstrip" class="cv"></canvas>
-          <div class="legend"><i><span class="sw" style="background:var(--grn)"></span>clear</i><i><span class="sw" style="background:var(--amb)"></span>suspicious</i><i><span class="sw" style="background:var(--red)"></span>high risk</i><i><span class="sw" style="background:#5a6378"></span>insufficient data</i><i>dashed: 0.33 / 0.66 thresholds</i></div></div></div>
-        <div style="display:flex;flex-direction:column;gap:16px">
-          <div class="card"><div class="hd"><h2>Current window</h2></div><div class="bd verdict">
-            <div class="gauge"><svg viewBox="0 0 200 128" width="200" height="128">
-              <path d="M20 120 A80 80 0 0 1 180 120" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="12" stroke-linecap="round"/>
-              <path id="lArc" d="" fill="none" stroke="var(--cyan)" stroke-width="12" stroke-linecap="round"/></svg>
-              <div class="val"><b id="lRisk">—</b><span>risk score</span></div></div>
-            <div class="vbadge" id="lbadge">IDLE</div><div class="note" id="lnote">Start monitoring to stream the microphone. Nothing is stored.</div>
-          </div></div>
-          <div class="card"><div class="hd"><h2>Event log</h2></div><div class="bd"><div class="log" id="llog"><div class="muted ph">no events yet</div></div></div></div>
+      <!-- ======================= LIVE ======================= -->
+      <section class="view" id="v-live">
+        <div class="filebar">
+          <div class="fileico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4"/></svg></div>
+          <div><h2>Live monitor</h2><div class="metas"><span class="meta"><span class="statusdot" id="lDot" style="display:inline-block;vertical-align:middle;margin-right:6px"></span><b id="lState">Idle</b></span><span class="meta"><b id="lRate">—</b></span><span class="meta"><b id="lN">0</b> windows</span><span class="meta"><b id="lF">0</b> flagged</span></div></div>
+          <div class="acts">
+            <button class="btn ghost" id="simBtn"><svg viewBox="0 0 24 24"><path d="M5 4l14 8-14 8z"/></svg>Simulated stream</button>
+            <button class="btn primary" id="liveBtn"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Start microphone</button>
+          </div>
         </div>
-      </div>
-    </section>
+        <div class="lgrid">
+          <div class="card"><div class="card-h"><h3>Spectrogram waterfall</h3><span class="sub">last 60 s · 1 s windows scored by the engine</span></div>
+            <div class="card-b"><canvas id="wf" class="cv"></canvas><canvas id="ls" class="cv"></canvas></div></div>
+          <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+            <div class="card"><div class="card-h"><h3>Current window</h3></div><div class="card-b" style="display:grid;place-items:center;gap:10px">
+              <div class="ring"><svg viewBox="0 0 132 132"><circle cx="66" cy="66" r="54" fill="none" stroke="#16213a" stroke-width="11" pathLength="100" stroke-dasharray="75 100" stroke-linecap="round"/>
+                <circle id="lArc" cx="66" cy="66" r="54" fill="none" stroke="#4cc3ff" stroke-width="11" pathLength="100" stroke-dasharray="0 100" stroke-linecap="round" style="transition:stroke-dasharray .4s"/></svg>
+                <div class="val"><b id="lRisk">—</b><span>risk score</span></div></div>
+              <span class="tag t-INSUFFICIENT_DATA" id="lTag"><span class="d"></span><span id="lTagT">Idle</span></span>
+              <div class="faint" id="lNote" style="font-size:12.5px;text-align:center">Start the microphone, or play a simulated stream to see the monitor work. Nothing is stored.</div>
+            </div></div>
+            <div class="card"><div class="card-h"><h3>Event log</h3><span class="sub">flagged windows</span></div><div class="card-b"><div class="log" id="lLog"><div class="faint ph">No events yet.</div></div></div></div>
+          </div>
+        </div>
+      </section>
 
-    <!-- ================= BATCH ================= -->
-    <section class="view" id="v-batch">
-      <div class="top">
-        <div><h1>Batch screening</h1><div class="sub">score a folder of captures; click a row to open it in Analyze</div></div>
-        <div class="spacer"></div>
-        <div class="ctrls"><button class="ghost" onclick="exportCSV()">Export CSV</button><button class="primary" onclick="$('bf').click()">Add WAVs</button>
-          <input id="bf" type="file" accept=".wav,audio/wav" multiple onchange="batchAdd(this.files)"></div>
-      </div>
-      <div class="drop" id="drop" onclick="$('bf').click()">Drop WAV files here, or click to choose. Files are scored one at a time by the engine and never stored.</div>
-      <div class="stats" id="bstats"></div>
-      <div class="card"><div class="hd"><h2>Results</h2><span class="r" id="bcount">0 files</span></div>
-        <div class="bd" style="padding:0 6px 6px"><table><thead><tr>
-          <th data-k="name">File</th><th data-k="verdict">Verdict</th><th data-k="risk" style="text-align:right">Risk</th>
-          <th data-k="sr" style="text-align:right">Rate</th><th data-k="dur" style="text-align:right">Dur</th><th data-k="oob" style="text-align:right">&gt;18 kHz</th><th data-k="car" style="text-align:right">Carrier</th>
-        </tr></thead><tbody id="btbody"><tr><td colspan="7" class="muted" style="padding:20px">no files yet</td></tr></tbody></table></div></div>
-    </section>
+      <!-- ======================= BATCH ======================= -->
+      <section class="view" id="v-batch">
+        <div class="filebar">
+          <div class="fileico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M9 9.5V20"/></svg></div>
+          <div><h2>Batch screening</h2><div class="metas"><span class="meta">Score many captures; click a row to open it in Analyze</span></div></div>
+          <div class="acts"><button class="btn ghost" id="csvBtn"><svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M4 18h16"/></svg>Export CSV</button>
+            <button class="btn ghost" id="clearBtn">Clear</button></div>
+        </div>
+        <div class="dropzone dz-sm" id="bdz"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+          <div style="text-align:left"><b>Drop WAV files</b><div class="faint" style="font-size:12.5px">or click to choose several · scored one at a time, never stored</div></div></div>
+        <div class="kpis" id="kpis"></div>
+        <div class="card"><div class="card-h"><h3>Results</h3><span class="sub" id="bCount">0 files</span>
+          <div class="right"><div class="seg" id="bFilter"><button data-f="all" class="on">All</button><button data-f="flag">Flagged</button><button data-f="CLEAR">Clear</button><button data-f="INSUFFICIENT_DATA">Insufficient</button></div></div></div>
+          <div class="card-b tablewrap" style="padding-top:6px"><table><thead><tr>
+            <th data-k="name">File</th><th data-k="verdict">Verdict</th><th data-k="risk" class="n">Risk</th><th data-k="sr" class="n">Rate</th>
+            <th data-k="dur" class="n">Duration</th><th data-k="oob" class="n">Above 18 kHz</th><th data-k="car" class="n">Carrier</th></tr></thead>
+            <tbody id="bBody"></tbody></table></div></div>
+      </section>
 
-    <!-- ================= COVERAGE ================= -->
-    <section class="view" id="v-coverage">
-      <div class="top"><div><h1>Coverage &amp; limits</h1><div class="sub">what a stored recording keeps, and what this screen can and cannot see</div></div></div>
-      <div class="two">
-        <div class="card"><div class="hd"><h2>The capture-chain finding</h2></div><div class="bd">
-          <p style="margin:0 0 10px">A phone's ADC low-passes before storing audio, so an ultrasonic <b>carrier</b> is usually gone from the file. On simulated attacks passed through a device ADC:</p>
-          <canvas id="covbar" class="cv" style="height:180px"></canvas>
-          <p class="muted" style="font-size:12px;margin:10px 0 0">All 2,934 real DolphinAttack captures are 16 kHz and return INSUFFICIENT_DATA. Capture at ≥ 44.1 kHz for a verdict.</p>
-        </div></div>
-        <div class="card"><div class="hd"><h2>Verdict policy for agents</h2></div><div class="bd" style="padding:0 6px 6px"><table>
-          <thead><tr><th>Verdict</th><th>Routine</th><th>Sensitive</th><th>Critical</th></tr></thead><tbody>
-          <tr><td>CLEAR</td><td class="ok">allow</td><td class="ok">allow</td><td class="warn">confirm</td></tr>
-          <tr><td>INSUFFICIENT_DATA</td><td class="ok">allow</td><td class="warn">confirm</td><td class="warn">confirm</td></tr>
-          <tr><td>SUSPICIOUS</td><td class="ok">allow</td><td class="warn">confirm</td><td class="bad">block</td></tr>
-          <tr><td>HIGH_RISK</td><td class="warn">confirm</td><td class="bad">block</td><td class="bad">block</td></tr></tbody></table></div></div>
-      </div>
-      <div class="card" style="margin-top:16px"><div class="hd"><h2>Attack classes</h2><span class="r">docs/threat_model.md</span></div><div class="bd" style="padding:0 6px 6px"><table>
-        <thead><tr><th>Class</th><th>What survives a 16/48 kHz capture</th><th>This screen</th><th>Public test data</th></tr></thead><tbody>
-        <tr><td>Ultrasonic AM (DolphinAttack)</td><td>demodulated residue in-band; carrier removed</td><td class="warn">carrier, high-rate only</td><td class="ok">yes · 16 kHz, no matched benign</td></tr>
-        <tr><td>Near-ultrasound in media (NUIT)</td><td>16–22 kHz if the device keeps it</td><td class="warn">partial (≥ 18 kHz)</td><td class="bad">none</td></tr>
-        <tr><td>Solid-surface (SurfingAttack, SUAD)</td><td>as ultrasonic AM</td><td class="warn">high-rate only</td><td class="bad">none</td></tr>
-        <tr><td>Hearable / metamaterial ultrasound</td><td>as ultrasonic AM</td><td class="warn">high-rate only</td><td class="bad">none</td></tr>
-        <tr><td>Laser (LightCommands) · EM (GhostTalk)</td><td>none — bypasses the acoustic path</td><td class="bad">out of scope</td><td class="bad">none</td></tr>
-        <tr><td>Hidden / adversarial audio · agent prompt injection</td><td>fully in-band</td><td class="muted">separate problem</td><td class="muted">partial</td></tr>
-        <tr><td>Replay / voice clone</td><td>fully in-band</td><td class="muted">anti-spoofing module</td><td class="ok">ASVspoof 2019/2021/5</td></tr>
-        </tbody></table></div></div>
-    </section>
+      <!-- ======================= COVERAGE ======================= -->
+      <section class="view" id="v-coverage">
+        <div class="filebar"><div class="fileico"><svg viewBox="0 0 24 24"><path d="M12 3l7.5 3.2v5.3c0 4.6-3.2 7.8-7.5 9.5-4.3-1.7-7.5-4.9-7.5-9.5V6.2z"/></svg></div>
+          <div><h2>Coverage &amp; limits</h2><div class="metas"><span class="meta">What a stored recording keeps — and what this screen can and cannot see</span></div></div></div>
+        <div class="cgrid">
+          <div class="card"><div class="card-h"><h3>Detection through a device capture chain</h3><span class="sub">simulated attacks, 12 per condition</span></div>
+            <div class="card-b"><canvas id="cbar" class="cv"></canvas>
+              <p class="faint" style="font-size:12.5px;margin:12px 0 0">A phone's converter low-passes before storing audio, so the ultrasonic carrier is usually gone from the file. All 2,934 real DolphinAttack captures are 16 kHz and return “insufficient data”.</p></div></div>
+          <div class="card"><div class="card-h"><h3>Agent gate policy</h3><span class="sub">default, overridable</span></div>
+            <div class="card-b"><table class="policy"><thead><tr><th>Verdict</th><th>Routine</th><th>Sensitive</th><th>Critical</th></tr></thead><tbody>
+              <tr><td><span class="tag t-CLEAR"><span class="d"></span>Clear</span></td><td><span class="cell c-allow">allow</span></td><td><span class="cell c-allow">allow</span></td><td><span class="cell c-confirm">confirm</span></td></tr>
+              <tr><td><span class="tag t-INSUFFICIENT_DATA"><span class="d"></span>Insufficient</span></td><td><span class="cell c-allow">allow</span></td><td><span class="cell c-confirm">confirm</span></td><td><span class="cell c-confirm">confirm</span></td></tr>
+              <tr><td><span class="tag t-SUSPICIOUS"><span class="d"></span>Suspicious</span></td><td><span class="cell c-allow">allow</span></td><td><span class="cell c-confirm">confirm</span></td><td><span class="cell c-block">block</span></td></tr>
+              <tr><td><span class="tag t-HIGH_RISK"><span class="d"></span>High risk</span></td><td><span class="cell c-confirm">confirm</span></td><td><span class="cell c-block">block</span></td><td><span class="cell c-block">block</span></td></tr>
+            </tbody></table>
+            <p class="faint" style="font-size:12.5px;margin:12px 0 0">Critical actions always confirm. “Could not check” is treated as unverified, not safe.</p></div></div>
+        </div>
+        <div class="card" style="margin-top:18px"><div class="card-h"><h3>Attack classes</h3><span class="sub">see docs/threat_model.md</span></div>
+          <div class="card-b"><div class="classes" id="classes"></div></div></div>
+      </section>
 
-    <!-- ================= API ================= -->
-    <section class="view" id="v-api">
-      <div class="top"><div><h1>API</h1><div class="sub">the same engine over HTTP — stateless, nothing stored</div></div></div>
-      <div class="two">
-        <div class="card"><div class="hd"><h2>POST /api/scan</h2></div><div class="bd">
-          multipart: <code>file</code> (WAV), optional <code>window</code>, <code>hop</code>
-          <pre>curl -F file=@clip.wav -F window=1.0 \
-  http://127.0.0.1:8000/api/scan</pre>
-          <p class="muted" style="font-size:12px">Returns the verdict, risk, per-detector evidence, a PSD, a spectrogram grid, the waveform envelope, the window timeline and a capture-rate note.</p>
-        </div></div>
-        <div class="card"><div class="hd"><h2>POST /api/gate</h2></div><div class="bd">
-          multipart: <code>file</code>, <code>action</code> = routine | sensitive | critical, optional <code>command</code>
-          <pre>curl -F file=@cmd.wav -F action=critical \
-  -F command="unlock the door" \
-  http://127.0.0.1:8000/api/gate</pre>
-          <p class="muted" style="font-size:12px">Returns <code>allow</code> / <code>confirm</code> / <code>block</code> with the reason and the full report.</p>
-        </div></div>
-      </div>
-      <div class="card" style="margin-top:16px"><div class="hd"><h2>Python</h2></div><div class="bd">
-<pre>from echoguard import Pipeline, ConfirmationGate, ActionSensitivity
+      <!-- ======================= API ======================= -->
+      <section class="view" id="v-api">
+        <div class="filebar"><div class="fileico"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></div>
+          <div><h2>API</h2><div class="metas"><span class="meta">The same engine over HTTP · stateless · nothing stored</span></div></div></div>
+        <div class="cgrid">
+          <div class="card"><div class="card-h"><span class="ep"><span class="m">POST</span>/api/scan</span></div><div class="card-b">
+            <div class="faint" style="font-size:13px">Multipart <b class="muted">file</b> (WAV), optional <b class="muted">window</b>, <b class="muted">hop</b>. Returns the verdict, risk, per-detector evidence, engine thresholds, PSD, spectrogram grid, waveform, window timeline and a capture-rate note.</div>
+            <div class="code">curl -F file=@clip.wav -F window=1.0 \
+     http://127.0.0.1:8000/api/scan<button class="copy">Copy</button></div></div></div>
+          <div class="card"><div class="card-h"><span class="ep"><span class="m">POST</span>/api/gate</span></div><div class="card-b">
+            <div class="faint" style="font-size:13px">Multipart <b class="muted">file</b>, <b class="muted">action</b> = routine | sensitive | critical, optional <b class="muted">command</b>. Returns allow, confirm or block with the reason.</div>
+            <div class="code">curl -F file=@cmd.wav -F action=critical \
+     -F command="unlock the door" \
+     http://127.0.0.1:8000/api/gate<button class="copy">Copy</button></div></div></div>
+        </div>
+        <div class="card" style="margin-top:18px"><div class="card-h"><span class="ep"><span class="m get">GET</span>/api/health</span><span class="sub" style="margin-left:6px">and Python</span></div><div class="card-b">
+          <div class="code">from echoguard import Pipeline, ConfirmationGate, ActionSensitivity
+
 report = Pipeline().analyze_windows(samples, sample_rate).summary
-result = ConfirmationGate().evaluate(samples, sample_rate, ActionSensitivity.CRITICAL)</pre></div></div>
-    </section>
-  </main>
+result = ConfirmationGate().evaluate(samples, sample_rate, ActionSensitivity.CRITICAL)
+print(report.verdict, result.decision)<button class="copy">Copy</button></div></div></div>
+      </section>
+    </main>
+  </div>
 </div>
-
-<script>
-const $=id=>document.getElementById(id);
-const COL={CLEAR:'#2ee6a6',SUSPICIOUS:'#f6b73c',HIGH_RISK:'#ff5a6a',INSUFFICIENT_DATA:'#7f8aa3'};
-const RANK={CLEAR:0,INSUFFICIENT_DATA:1,SUSPICIOUS:2,HIGH_RISK:3};
-const HEAT=buildHeat();
-let lastBlob=null,lastName=null,lastData=null;
-
-/* ---------- navigation ---------- */
-document.querySelectorAll('.nav a').forEach(a=>a.onclick=()=>show(a.dataset.v));
-function show(v){
-  document.querySelectorAll('.nav a').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
-  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));
-  requestAnimationFrame(()=>{ if(v==='analyze'&&lastData)render(lastData); if(v==='coverage')drawCov(); if(v==='live')drawLive(); });
-}
-
-/* ---------- canvas helper: size to the displayed box x DPR ---------- */
-function fit(c){ const r=c.getBoundingClientRect(), d=window.devicePixelRatio||1;
-  const w=Math.max(1,Math.round(r.width*d)), h=Math.max(1,Math.round(r.height*d));
-  if(c.width!==w||c.height!==h){c.width=w;c.height=h;}
-  const ctx=c.getContext('2d'); ctx.setTransform(d,0,0,d,0,0); return [ctx,r.width,r.height]; }
-window.addEventListener('resize',()=>{ if(lastData&&$('v-analyze').classList.contains('on'))render(lastData); drawLive(); drawCov(); });
-
-/* ---------- analyze ---------- */
-async function onFile(file){ if(!file)return; lastBlob=file; lastName=file.name; await scan(); }
-async function postScan(blob,name,win='1.0'){
-  const fd=new FormData(); fd.append('file',blob,name||'clip.wav'); fd.append('window',win); fd.append('hop','0.5');
-  const r=await fetch('/api/scan',{method:'POST',body:fd});
-  if(!r.ok){ const d=await r.json().catch(()=>({detail:r.statusText})); throw new Error(d.detail||r.status); }
-  return r.json();
-}
-async function scan(){
-  $('error').textContent=''; busy(true);
-  try{ lastData=await postScan(lastBlob,lastName); render(lastData); }
-  catch(e){ $('error').textContent='scan failed: '+e.message; }
-  busy(false);
-}
-function busy(b){ document.querySelectorAll('#v-analyze .ctrls button').forEach(x=>x.disabled=b); }
-
-function render(d){
-  $('empty').classList.add('hidden'); $('app').classList.remove('hidden');
-  const c=COL[d.verdict]||'#8a94a9';
-  $('c_sr').textContent=(d.sample_rate/1000).toFixed(1)+' kHz';
-  $('c_ny').textContent=(d.sample_rate/2000).toFixed(1)+' kHz';
-  $('c_dur').textContent=d.duration_sec.toFixed(2)+' s';
-  $('fnameR').textContent=d.filename||lastName||'clip';
-  $('specR').textContent=`${d.spectrogram.shape[1]}×${d.spectrogram.shape[0]} · ${d.spectrogram.vmin_db}…${d.spectrogram.vmax_db} dB`;
-  gauge('gArc',d.overall_risk,c); $('gRisk').textContent=d.overall_risk.toFixed(2); $('gRisk').style.color=c;
-  badge($('vbadge'),d.verdict);
-  $('note').textContent=d.capture_note||'';
-  drawWave(d.waveform,c); drawSpec(d.spectrogram,d.annotations); drawPSD(d.psd,d.annotations);
-  tele(d); eq(d); timeline(d.windows);
-  $('f_ms').textContent='analysis '+(d.analysis_ms??'—')+' ms';
-  $('f_sr').textContent=(d.sample_rate/1000).toFixed(1)+' kHz · nyq '+(d.sample_rate/2000).toFixed(1)+' kHz';
-}
-function badge(el,v){ el.textContent=v.replace('_',' '); el.style.background=COL[v]||'#39414f';
-  el.style.color=(v==='CLEAR'||v==='SUSPICIOUS')?'#07140e':'#fff'; }
-function gauge(id,risk,col){
-  const r=Math.max(0.001,Math.min(1,risk)), a=Math.PI*(1+r), R=80,cx=100,cy=120;
-  $(id).setAttribute('d',`M20 120 A${R} ${R} 0 0 1 ${(cx+R*Math.cos(a)).toFixed(1)} ${(cy+R*Math.sin(a)).toFixed(1)}`);
-  $(id).setAttribute('stroke',col); $(id).style.filter=`drop-shadow(0 0 6px ${col})`;
-}
-const fx=(v,d=2)=>v==null?'—':(+v).toFixed(d);
-function tele(d){
-  const ev=Object.fromEntries(d.findings.map(f=>[f.name,f.evidence||{}])), a=d.annotations, car=ev.carrier_peak||{};
-  const rows=[['out-of-band energy',a.oob_ratio==null?'—':(a.oob_ratio*100).toFixed(2),'%'],['out-of-band level',fx(a.oob_level_dbfs,0),'dBFS'],
-    ['carrier frequency',a.carrier_peak_hz?(a.carrier_peak_hz/1000).toFixed(2):'—','kHz'],['carrier prominence',fx(a.carrier_prominence_db,0),'dB'],
-    ['modulation sideband',fx(a.carrier_sideband_db,0),'dB'],['peak narrowness',fx(car.narrowness,2),''],
-    ['CFAR noise floor',fx(car.noise_threshold_db,1),'dB'],['Welch d.o.f.',fx(car.welch_dof,0),'']];
-  $('tele').innerHTML=rows.map(([k,v,u])=>`<div class="tr"><span class="k">${k}</span><span class="v">${v}<u>${u}</u></span></div>`).join('');
-}
-function eq(d){
-  const r=Object.fromEntries(d.findings.map(f=>[f.name,f.risk])), A=(r.out_of_band_energy??0).toFixed(2), B=(r.carrier_peak??0).toFixed(2);
-  $('eq').innerHTML=`<span class="cm">// corroborated injection score</span><br>R <span class="op">=</span> &radic;( <span class="nm">&rho;<sub>A</sub></span> &middot; <span class="nm">&rho;<sub>B</sub></span> )<br>`+
-   `<span class="nm">&rho;<sub>A</sub></span> <span class="op">=</span> ${A} <span class="cm">out-of-band</span><br><span class="nm">&rho;<sub>B</sub></span> <span class="op">=</span> ${B} <span class="cm">carrier</span><br>`+
-   `R <span class="op">=</span> <b>${d.overall_risk.toFixed(2)}</b> &rarr; <b style="color:${COL[d.verdict]}">${d.verdict}</b><br><span class="cm">// R &ge; 0.66 high risk &middot; &ge; 0.33 suspicious</span>`;
-}
-function timeline(w){
-  const tl=$('timeline'); tl.innerHTML='';
-  if(!w||!w.length){$('tlnote').textContent='scored as a single clip';return;}
-  let worst=w[0];
-  w.forEach(x=>{ const s=document.createElement('div'); s.className='seg-'+x.verdict; s.title=`${x.start_sec.toFixed(1)} s · ${x.verdict} · ${x.overall_risk.toFixed(2)}`; tl.appendChild(s);
-    if(RANK[x.verdict]>RANK[worst.verdict]||(x.verdict===worst.verdict&&x.overall_risk>worst.overall_risk))worst=x; });
-  $('tlnote').textContent=`${w.length} window${w.length>1?'s':''} · worst at ${worst.start_sec.toFixed(1)} s (${worst.verdict})`;
-}
-
-/* ---------- drawing ---------- */
-function buildHeat(){
-  const st=[[0,[5,7,13]],[.18,[12,42,74]],[.38,[21,111,184]],[.55,[34,195,230]],[.70,[232,210,74]],[.85,[255,140,66]],[1,[255,242,224]]], lut=new Uint8Array(768);
-  for(let i=0;i<256;i++){ const t=i/255; let a=st[0],b=st[st.length-1];
-    for(let s=0;s<st.length-1;s++) if(t>=st[s][0]&&t<=st[s+1][0]){a=st[s];b=st[s+1];break;}
-    const f=(t-a[0])/((b[0]-a[0])||1); for(let k=0;k<3;k++) lut[i*3+k]=a[1][k]+(b[1][k]-a[1][k])*f; }
-  return lut;
-}
-function drawSpec(spec,ann){
-  const [F,T]=spec.shape, raw=atob(spec.data), off=document.createElement('canvas'); off.width=T; off.height=F;
-  const ic=off.getContext('2d'), img=ic.createImageData(T,F);
-  for(let i=0;i<F*T;i++){ const v=raw.charCodeAt(i); img.data[i*4]=HEAT[v*3]; img.data[i*4+1]=HEAT[v*3+1]; img.data[i*4+2]=HEAT[v*3+2]; img.data[i*4+3]=255; }
-  ic.putImageData(img,0,0);
-  const [ctx,W,H]=fit($('spec')); ctx.clearRect(0,0,W,H); ctx.imageSmoothingEnabled=true; ctx.drawImage(off,0,0,W,H);
-  const fmax=spec.fmax_hz, dur=spec.dur_s;
-  ctx.font="11px 'IBM Plex Mono'"; ctx.textAlign='right';
-  for(let k=0;k<=fmax/1000;k+=Math.max(2,Math.round(fmax/1000/8))){ const y=H*(1-k*1000/fmax);
-    ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
-    ctx.fillStyle='rgba(200,214,236,.7)'; ctx.fillText(k+'k',W-6,y-4); }
-  ctx.textAlign='left';
-  if(dur>0){ const step=dur>8?2:dur>3?1:0.25; for(let t=step;t<dur;t+=step){ const x=W*t/dur; ctx.fillStyle='rgba(200,214,236,.45)'; ctx.fillText(t.toFixed(step<1?2:0)+'s',x+3,H-5); } }
-  if(ann&&ann.oob_edge_hz<fmax){ const y=H*(1-ann.oob_edge_hz/fmax); ctx.strokeStyle='rgba(255,90,106,.9)'; ctx.lineWidth=1.5; ctx.setLineDash([7,5]);
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle='#ff5a6a'; ctx.fillText('18 kHz',6,y-5); }
-  if(ann&&ann.carrier_peak_hz&&ann.carrier_peak_hz<=fmax){ const y=H*(1-ann.carrier_peak_hz/fmax); ctx.strokeStyle='rgba(246,183,60,.95)'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); ctx.fillStyle='#f6b73c'; ctx.fillText('carrier '+(ann.carrier_peak_hz/1000).toFixed(1)+' kHz',70,y-5); }
-}
-function drawWave(env,col){
-  const [ctx,W,H]=fit($('wave')); ctx.clearRect(0,0,W,H); if(!env||!env.length)return;
-  const mid=H/2,n=env.length; ctx.fillStyle=col+'40'; ctx.strokeStyle=col; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,mid);
-  for(let i=0;i<n;i++) ctx.lineTo(i/(n-1)*W,mid-env[i]*H*.46);
-  for(let i=n-1;i>=0;i--) ctx.lineTo(i/(n-1)*W,mid+env[i]*H*.46);
-  ctx.closePath(); ctx.fill();
-}
-function drawPSD(psd,ann){
-  const [ctx,W,H]=fit($('psd')),pL=34,pB=18,pT=8,pR=8; ctx.clearRect(0,0,W,H); if(!psd||!psd.freqs_hz.length)return;
-  const fs=psd.freqs_hz,ps=psd.psd_db,fmax=fs[fs.length-1]; let lo=Math.min(...ps),hi=Math.max(...ps); if(hi-lo<6){hi+=3;lo-=3;}
-  const X=f=>pL+f/fmax*(W-pL-pR), Y=v=>pT+(1-(v-lo)/(hi-lo))*(H-pT-pB);
-  ctx.font="10px 'IBM Plex Mono'"; ctx.textAlign='center';
-  for(let k=0;k<=fmax/1000;k+=Math.max(4,Math.round(fmax/1000/6))){ const x=X(k*1000); ctx.strokeStyle='rgba(255,255,255,.05)'; ctx.beginPath(); ctx.moveTo(x,pT); ctx.lineTo(x,H-pB); ctx.stroke();
-    ctx.fillStyle='rgba(150,163,186,.75)'; ctx.fillText(k+'k',x,H-4); }
-  ctx.textAlign='left'; ctx.fillText('dB',2,pT+8);
-  if(ann&&ann.oob_edge_hz<fmax){ ctx.fillStyle='rgba(255,90,106,.07)'; ctx.fillRect(X(ann.oob_edge_hz),pT,X(fmax)-X(ann.oob_edge_hz),H-pT-pB); }
-  const g=ctx.createLinearGradient(0,pT,0,H-pB); g.addColorStop(0,'rgba(56,189,248,.25)'); g.addColorStop(1,'rgba(56,189,248,0)');
-  ctx.beginPath(); fs.forEach((f,i)=>{const x=X(f),y=Y(ps[i]); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.strokeStyle='#38bdf8'; ctx.lineWidth=1.3; ctx.stroke();
-  ctx.lineTo(X(fmax),H-pB); ctx.lineTo(X(fs[0]),H-pB); ctx.closePath(); ctx.fillStyle=g; ctx.fill();
-  if(ann&&ann.oob_edge_hz<fmax){ ctx.strokeStyle='rgba(255,90,106,.85)'; ctx.setLineDash([4,3]); ctx.beginPath(); ctx.moveTo(X(ann.oob_edge_hz),pT); ctx.lineTo(X(ann.oob_edge_hz),H-pB); ctx.stroke(); ctx.setLineDash([]); }
-  if(ann&&ann.carrier_peak_hz&&ann.carrier_peak_hz<=fmax){ ctx.fillStyle='#f6b73c'; ctx.beginPath(); ctx.arc(X(ann.carrier_peak_hz),pT+6,3.5,0,6.28); ctx.fill(); }
-}
-
-/* ---------- gate ---------- */
-document.querySelectorAll('.opt').forEach(o=>o.onclick=()=>{document.querySelectorAll('.opt').forEach(x=>x.classList.remove('sel'));o.classList.add('sel');});
-async function runGate(){
-  if(!lastBlob)return; const act=document.querySelector('.opt.sel').dataset.a;
-  const fd=new FormData(); fd.append('file',lastBlob,lastName||'clip.wav'); fd.append('action',act); fd.append('window','1.0');
-  const r=await fetch('/api/gate',{method:'POST',body:fd});
-  if(!r.ok){ const d=await r.json().catch(()=>({})); $('gateOut').innerHTML=`<span class="err">gate failed: ${d.detail||r.status}</span>`; return; }
-  const d=await r.json();
-  $('gateOut').innerHTML=`<span class="decision d-${d.decision}">${d.decision.toUpperCase()}</span><div class="note" style="text-align:left;margin-top:10px">${d.reason}</div>`;
-}
-
-/* ---------- demo signals (synthetic, no command content) ---------- */
-function synth(kind,sr,secs=1.5){
-  const n=Math.round(sr*secs),buf=new Float32Array(n); let s=kind==='attack'?7:3,lp=0,ph=0;
-  const rnd=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x3fffffff-1;};
-  for(let i=0;i<n;i++){ const t=i/sr; lp=.92*lp+.08*rnd();
-    const env=Math.max(0,Math.sin(2*Math.PI*2.2*t))**1.5, f0=150+35*Math.sin(2*Math.PI*.9*t); ph+=2*Math.PI*f0/sr;
-    let v=0; for(let h=1;h<=14;h++) if(h*f0<sr/2-200) v+=Math.sin(h*ph)/(h*.9);
-    let x=.22*env*v+.03*lp+.0015*rnd();
-    if(kind==='attack'){ const m=.4*Math.sin(2*Math.PI*300*t)+.3*Math.sin(2*Math.PI*1200*t)+.3*Math.sin(2*Math.PI*2500*t); x+=.35*(1+.9*m)*Math.sin(2*Math.PI*20000*t); }
-    buf[i]=x; }
-  let pk=0; for(const v of buf)pk=Math.max(pk,Math.abs(v)); for(let i=0;i<n;i++)buf[i]*=.9/pk; return buf;
-}
-function demo(kind){ const sr=kind==='phone'?16000:48000; lastBlob=encodeWAV(synth(kind==='phone'?'attack':kind,sr),sr); lastName=kind+'_demo.wav'; scan(); }
-
-/* ---------- mic (single clip) ---------- */
-let rec=null;
-async function openMic(){ const ms=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
-  const ac=new (window.AudioContext||window.webkitAudioContext)(), src=ac.createMediaStreamSource(ms), pn=ac.createScriptProcessor(4096,1,1);
-  src.connect(pn); pn.connect(ac.destination); return {ms,ac,pn,sr:ac.sampleRate}; }
-function closeMic(m){ if(!m)return; m.pn.disconnect(); m.pn.onaudioprocess=null; m.ms.getTracks().forEach(t=>t.stop()); m.ac.close(); }
-async function toggleRec(){
-  if(rec){ const m=rec; rec=null; $('recBtn').textContent='● Record'; $('recBtn').classList.remove('on'); closeMic(m);
-    const tot=m.chunks.reduce((a,c)=>a+c.length,0),b=new Float32Array(tot); let o=0; m.chunks.forEach(c=>{b.set(c,o);o+=c.length;});
-    lastBlob=encodeWAV(b,m.sr); lastName='recording.wav'; scan(); return; }
-  try{ rec=await openMic(); }catch(e){ $('error').textContent='microphone unavailable: '+e; return; }
-  rec.chunks=[]; rec.pn.onaudioprocess=e=>rec&&rec.chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
-  $('recBtn').textContent='■ Stop'; $('recBtn').classList.add('on');
-}
-
-/* ---------- live monitor ---------- */
-let live=null, lhist=[];
-async function toggleLive(){
-  if(live){ closeMic(live); live=null; $('liveBtn').textContent='Start monitoring'; $('lpulse').classList.remove('on'); $('lnote').textContent='Stopped. Nothing was stored.'; return; }
-  try{ live=await openMic(); }catch(e){ $('lnote').textContent='microphone unavailable: '+e; return; }
-  live.buf=[]; live.len=0; live.busy=false; lhist=[]; $('llog').innerHTML='';
-  $('l_sr').textContent=(live.sr/1000).toFixed(1)+' kHz'; $('liveBtn').textContent='Stop'; $('lpulse').classList.add('on');
-  $('lnote').textContent=live.sr<36000?`Mic runs at ${(live.sr/1000).toFixed(1)} kHz — below the 36 kHz needed; windows will be INSUFFICIENT_DATA.`:'Listening. Each second is scored by the engine; nothing is stored.';
-  live.pn.onaudioprocess=e=>{ if(!live)return; const ch=new Float32Array(e.inputBuffer.getChannelData(0)); live.buf.push(ch); live.len+=ch.length;
-    if(live.len>=live.sr&&!live.busy){ const b=new Float32Array(live.len); let o=0; live.buf.forEach(c=>{b.set(c,o);o+=c.length;}); live.buf=[]; live.len=0; liveScore(b.subarray(0,live.sr)); } };
-}
-async function liveScore(samples){
-  if(!live)return; live.busy=true;
-  try{ const d=await postScan(encodeWAV(samples,live.sr),'live.wav','0'); liveAdd(d); }catch(e){ $('lnote').textContent='scan failed: '+e.message; }
-  if(live) live.busy=false;
-}
-function liveAdd(d){
-  const t=new Date().toLocaleTimeString([], {hour12:false}); lhist.push({v:d.verdict,r:d.overall_risk,t}); if(lhist.length>60)lhist.shift();
-  const c=COL[d.verdict]; gauge('lArc',d.overall_risk,c); $('lRisk').textContent=d.overall_risk.toFixed(2); $('lRisk').style.color=c; badge($('lbadge'),d.verdict);
-  $('l_n').textContent=lhist.length; const flags=lhist.filter(x=>x.v==='SUSPICIOUS'||x.v==='HIGH_RISK').length; $('l_f').textContent=flags;
-  if(d.verdict==='SUSPICIOUS'||d.verdict==='HIGH_RISK'){ const car=d.annotations.carrier_peak_hz;
-    if($("llog").querySelector(".ph"))$("llog").innerHTML="";
-    $('llog').insertAdjacentHTML('afterbegin',`<div><span class="t">${t}</span><span style="color:${c}">${d.verdict}</span><span class="muted">risk ${d.overall_risk.toFixed(2)}${car?' · '+(car/1000).toFixed(1)+' kHz':''}</span></div>`); }
-  drawLive();
-}
-function drawLive(){
-  const c=$('lstrip'); if(!c.offsetParent)return; const [ctx,W,H]=fit(c),pL=30,pB=16,pT=8; ctx.clearRect(0,0,W,H);
-  const Y=v=>pT+(1-v)*(H-pT-pB); ctx.font="10px 'IBM Plex Mono'"; ctx.fillStyle='rgba(150,163,186,.75)';
-  [0,.33,.66,1].forEach(v=>{ ctx.strokeStyle=v===.33||v===.66?'rgba(255,255,255,.18)':'rgba(255,255,255,.06)'; ctx.setLineDash(v===.33||v===.66?[4,4]:[]);
-    ctx.beginPath(); ctx.moveTo(pL,Y(v)); ctx.lineTo(W,Y(v)); ctx.stroke(); ctx.fillText(v.toFixed(2),2,Y(v)+3); }); ctx.setLineDash([]);
-  const n=60,bw=(W-pL)/n;
-  lhist.forEach((x,i)=>{ const j=n-lhist.length+i, h=Math.max(.02,x.v==='INSUFFICIENT_DATA'?.08:x.r);
-    ctx.fillStyle=x.v==='INSUFFICIENT_DATA'?'#5a6378':COL[x.v]; ctx.globalAlpha=.85; ctx.fillRect(pL+j*bw+1,Y(h),bw-2,Y(0)-Y(h)); ctx.globalAlpha=1; });
-  if(!lhist.length){ ctx.fillStyle='rgba(150,163,186,.6)'; ctx.textAlign='center'; ctx.font="12px Inter"; ctx.fillText('waiting for audio',W/2,H/2); ctx.textAlign='left'; }
-}
-
-/* ---------- batch ---------- */
-let rows=[], sortK='risk', sortDir=-1;
-const drop=$('drop');
-['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over');}));
-['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over');}));
-drop.addEventListener('drop',ev=>batchAdd(ev.dataTransfer.files));
-document.querySelectorAll('#v-batch th').forEach(th=>th.onclick=()=>{ const k=th.dataset.k; sortDir=(sortK===k)?-sortDir:-1; sortK=k; bRender(); });
-async function batchAdd(files){
-  for(const f of Array.from(files)){ if(!/\.wav$/i.test(f.name))continue;
-    const row={name:f.name,file:f,verdict:'…',risk:-1}; rows.push(row); bRender();
-    try{ const d=await postScan(f,f.name); Object.assign(row,{verdict:d.verdict,risk:d.overall_risk,sr:d.sample_rate,dur:d.duration_sec,
-      oob:d.annotations.oob_ratio,car:d.annotations.carrier_peak_hz,data:d}); }
-    catch(e){ row.verdict='ERROR'; row.err=e.message; }
-    bRender(); }
-}
-function bRender(){
-  const tb=$('btbody'); $('bcount').textContent=rows.length+' file'+(rows.length===1?'':'s');
-  if(!rows.length){ tb.innerHTML='<tr><td colspan="7" class="muted" style="padding:20px">no files yet</td></tr>'; $('bstats').innerHTML=''; return; }
-  const key=r=>sortK==='verdict'?RANK[r.verdict]??-1:(r[sortK]??-1);
-  const s=[...rows].sort((a,b)=>{const x=key(a),y=key(b);return (x>y?1:x<y?-1:0)*sortDir;});
-  tb.innerHTML=s.map((r,i)=>`<tr class="click" data-i="${rows.indexOf(r)}"><td>${r.name}</td>
-    <td>${r.verdict in COL?`<span class="pill" style="background:${COL[r.verdict]};color:${r.verdict==='HIGH_RISK'||r.verdict==='INSUFFICIENT_DATA'?'#fff':'#07140e'}">${r.verdict}</span>`:`<span class="muted">${r.verdict}${r.err?' · '+r.err:''}</span>`}</td>
-    <td class="n">${r.risk>=0?r.risk.toFixed(2):'—'}</td><td class="n">${r.sr?(r.sr/1000).toFixed(1)+'k':'—'}</td><td class="n">${r.dur?r.dur.toFixed(1)+'s':'—'}</td>
-    <td class="n">${r.oob!=null?(r.oob*100).toFixed(1)+'%':'—'}</td><td class="n">${r.car?(r.car/1000).toFixed(1)+'k':'—'}</td></tr>`).join('');
-  tb.querySelectorAll('tr.click').forEach(tr=>tr.onclick=()=>{ const r=rows[+tr.dataset.i]; if(!r.data)return; lastBlob=r.file; lastName=r.name; lastData=r.data; show('analyze'); });
-  const cnt=v=>rows.filter(r=>r.verdict===v).length;
-  $('bstats').innerHTML=[['scored',rows.filter(r=>r.verdict in COL).length,''],['clear',cnt('CLEAR'),'ok'],['suspicious',cnt('SUSPICIOUS'),'warn'],['high risk',cnt('HIGH_RISK'),'bad'],['insufficient',cnt('INSUFFICIENT_DATA'),'muted']]
-    .map(([k,v,c])=>`<div class="stat"><b class="${c}">${v}</b><span>${k}</span></div>`).join('');
-}
-function exportCSV(){
-  if(!rows.length)return; const lines=['file,verdict,risk,sample_rate,duration_s,oob_ratio,carrier_hz'];
-  rows.forEach(r=>lines.push([r.name,r.verdict,r.risk>=0?r.risk:'',r.sr||'',r.dur||'',r.oob??'',r.car??''].join(',')));
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'})); a.download='echoguard_batch.csv'; a.click();
-}
-
-/* ---------- coverage chart ---------- */
-function drawCov(){
-  const c=$('covbar'); if(!c.offsetParent)return; const [ctx,W,H]=fit(c), pB=34,pT=14,pL=6;
-  const data=[['raw 192 kHz',100,'#38bdf8'],['ADC 48 kHz',33,'#f6b73c'],['ADC 44.1 kHz',8,'#f6b73c'],['ADC 16 kHz',0,'#7f8aa3']];
-  const bw=(W-pL)/data.length; ctx.clearRect(0,0,W,H); ctx.font="11px 'IBM Plex Mono'"; ctx.textAlign='center';
-  data.forEach(([l,v,col],i)=>{ const x=pL+i*bw+bw*.18, w=bw*.64, h=(H-pT-pB)*v/100, y=H-pB-h;
-    ctx.fillStyle=col; ctx.globalAlpha=.85; ctx.fillRect(x,y,w,Math.max(h,1)); ctx.globalAlpha=1;
-    ctx.fillStyle='#eaf0fb'; ctx.fillText(v===0?'no verdict':v+'%',x+w/2,y-5); ctx.fillStyle='rgba(150,163,186,.85)'; ctx.fillText(l,x+w/2,H-pB+16); });
-  ctx.fillStyle='rgba(150,163,186,.6)'; ctx.fillText('attacks detected',W/2,H-4);
-}
-
-/* ---------- wav ---------- */
-function encodeWAV(sm,rate){
-  const n=sm.length,buf=new ArrayBuffer(44+n*2),v=new DataView(buf),wr=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
-  wr(0,'RIFF');v.setUint32(4,36+n*2,true);wr(8,'WAVE');wr(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
-  v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);wr(36,'data');v.setUint32(40,n*2,true);
-  let o=44; for(let i=0;i<n;i++){let x=Math.max(-1,Math.min(1,sm[i]));v.setInt16(o,x<0?x*0x8000:x*0x7FFF,true);o+=2;}
-  return new Blob([buf],{type:'audio/wav'});
-}
-</script>
+<input id="fileIn" type="file" accept=".wav,audio/wav" hidden>
+<input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
+<script src="/static/console.js?v=2"></script>
 </body>
 </html>
