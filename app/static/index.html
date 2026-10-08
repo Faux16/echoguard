@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EchoGuard</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --panel:#fff; --ink:#111; --muted:#667085; --line:#e3e6ea;
+    --accent:#1f5fa8; --clear:#2e7d32; --susp:#e08c14; --high:#c0392b; --insuf:#6b7280;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+         color:var(--ink); background:var(--bg); }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); background:var(--panel);
+           display:flex; align-items:baseline; gap:12px; }
+  header h1 { font-size:17px; margin:0; letter-spacing:.2px; }
+  header .sub { color:var(--muted); font-size:12.5px; }
+  main { max-width:960px; margin:0 auto; padding:18px 20px 60px; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  button { font:inherit; border:1px solid var(--line); background:#fff; color:var(--ink);
+           padding:8px 14px; border-radius:8px; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button.rec { background:#fff; color:var(--high); border-color:var(--high); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  label.file { display:inline-flex; align-items:center; gap:8px; }
+  input[type=file]{ display:none; }
+  .hint { color:var(--muted); font-size:12.5px; }
+  .verdict { display:flex; align-items:center; gap:14px; margin:6px 0 2px; }
+  .badge { font-weight:700; font-size:15px; padding:6px 12px; border-radius:8px; color:#fff; letter-spacing:.3px; }
+  .b-CLEAR{background:var(--clear)} .b-SUSPICIOUS{background:var(--susp)}
+  .b-HIGH_RISK{background:var(--high)} .b-INSUFFICIENT_DATA{background:var(--insuf)}
+  .risk { font-variant-numeric:tabular-nums; color:var(--muted); }
+  .note { font-size:12.5px; color:var(--muted); margin-top:6px; }
+  canvas { width:100%; height:260px; display:block; }
+  table { width:100%; border-collapse:collapse; font-size:13px; margin-top:4px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:12px; }
+  td.n { text-align:right; font-variant-numeric:tabular-nums; }
+  .sev-high{color:var(--high);font-weight:600} .sev-suspicious{color:var(--susp);font-weight:600}
+  .sev-clear{color:var(--clear)} .sev-na{color:var(--muted)}
+  .timeline { display:flex; height:22px; border-radius:5px; overflow:hidden; border:1px solid var(--line); }
+  .timeline > div { flex:1 1 auto; min-width:2px; }
+  .seg-CLEAR{background:#bfe3c0} .seg-SUSPICIOUS{background:#f3d08a}
+  .seg-HIGH_RISK{background:#e9a79e} .seg-INSUFFICIENT_DATA{background:#d6d9de}
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin:0 0 8px; }
+  .gate .opts { display:flex; gap:14px; margin:6px 0 10px; flex-wrap:wrap; }
+  .gate label { display:inline-flex; gap:6px; align-items:center; }
+  .decision { font-weight:700; padding:6px 12px; border-radius:8px; color:#fff; display:inline-block; }
+  .d-allow{background:var(--clear)} .d-confirm{background:var(--susp)} .d-block{background:var(--high)}
+  .err { color:var(--high); font-size:13px; }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .muted { color:var(--muted); }
+  .hidden { display:none; }
+  .legend { font-size:11.5px; color:var(--muted); display:flex; gap:14px; margin-top:4px; flex-wrap:wrap; }
+  .legend i { font-style:normal; }
+  .swatch { display:inline-block; width:10px; height:10px; border-radius:2px; vertical-align:middle; margin-right:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>EchoGuard</h1>
+  <span class="sub">defensive screen for inaudible / injected voice commands</span>
+</header>
+<main>
+  <div class="panel">
+    <div class="controls">
+      <label class="file">
+        <button class="primary" onclick="document.getElementById('f').click()">Upload WAV</button>
+        <input id="f" type="file" accept=".wav,audio/wav" onchange="onFile(this.files[0])">
+      </label>
+      <button id="recBtn" class="rec" onclick="toggleRec()">● Record</button>
+      <span id="status" class="hint">Upload a WAV clip, or record from the mic. Capture at ≥ 44.1 kHz to assess the ultrasonic band.</span>
+    </div>
+  </div>
+
+  <div id="result" class="hidden">
+    <div class="panel" style="margin-top:16px">
+      <div class="verdict">
+        <span id="badge" class="badge"></span>
+        <span id="risk" class="risk"></span>
+        <span id="meta" class="muted" style="margin-left:auto; font-size:12.5px"></span>
+      </div>
+      <div id="note" class="note"></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>Spectrum</h2>
+      <canvas id="psd" width="920" height="260"></canvas>
+      <div class="legend">
+        <i><span class="swatch" style="background:var(--accent)"></span>power spectral density</i>
+        <i><span class="swatch" style="background:#c0392b"></span>18 kHz out-of-band edge</i>
+        <i><span class="swatch" style="background:#e08c14"></span>detected carrier peak</i>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <div class="panel" style="flex:1 1 380px">
+        <h2>Detector evidence</h2>
+        <table id="evtbl"><tbody></tbody></table>
+      </div>
+      <div class="panel" style="flex:1 1 320px">
+        <h2>Timeline (worst window drives the verdict)</h2>
+        <div id="timeline" class="timeline"></div>
+        <div id="tlnote" class="note"></div>
+
+        <h2 style="margin-top:18px">Agent confirmation gate</h2>
+        <div class="gate">
+          <div class="opts" id="actionOpts">
+            <label><input type="radio" name="act" value="routine">Routine</label>
+            <label><input type="radio" name="act" value="sensitive" checked>Sensitive</label>
+            <label><input type="radio" name="act" value="critical">Critical</label>
+          </div>
+          <button onclick="runGate()">Evaluate action</button>
+          <div id="gateOut" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="error" class="err" style="margin-top:14px"></div>
+</main>
+
+<script>
+let lastBlob = null, lastName = null;
+const $ = id => document.getElementById(id);
+
+function setStatus(t){ $("status").textContent = t; }
+function showError(t){ $("error").textContent = t || ""; }
+
+async function onFile(file){
+  if(!file) return;
+  lastBlob = file; lastName = file.name;
+  setStatus("Scanning " + file.name + " …");
+  await scan();
+}
+
+async function scan(){
+  showError("");
+  const fd = new FormData();
+  fd.append("file", lastBlob, lastName || "clip.wav");
+  fd.append("window", "1.0"); fd.append("hop", "0.5");
+  let r;
+  try { r = await fetch("/api/scan", {method:"POST", body:fd}); }
+  catch(e){ showError("request failed: " + e); return; }
+  if(!r.ok){ const d = await r.json().catch(()=>({detail:r.statusText})); showError("scan failed: " + (d.detail||r.status)); return; }
+  render(await r.json());
+  setStatus("Scanned " + (lastName||"clip") + ". Upload or record another.");
+}
+
+function render(d){
+  $("result").classList.remove("hidden");
+  $("badge").className = "badge b-" + d.verdict;
+  $("badge").textContent = d.verdict.replace("_"," ");
+  $("risk").textContent = "risk " + d.overall_risk.toFixed(2);
+  $("meta").textContent = `${(d.sample_rate/1000).toFixed(1)} kHz · ${d.duration_sec.toFixed(2)} s`;
+  $("note").textContent = d.capture_note || "";
+  drawPSD(d.psd, d.annotations);
+  renderEvidence(d.findings, d.annotations);
+  renderTimeline(d.windows);
+}
+
+function renderEvidence(findings, ann){
+  const rows = findings.map(f => {
+    const sev = "sev-" + (f.severity==="n/a" ? "na" : f.severity);
+    let extra = "";
+    const e = f.evidence || {};
+    if(f.name==="out_of_band_energy" && e.out_of_band_ratio!=null)
+      extra = (e.out_of_band_ratio*100).toFixed(2) + "% above 18 kHz";
+    else if(f.name==="carrier_peak" && e.peak_freq_hz!=null)
+      extra = `${(e.peak_freq_hz/1000).toFixed(1)} kHz · ${(e.prominence_db||0).toFixed(0)} dB · sideband ${e.sideband_db!=null?e.sideband_db.toFixed(0):"–"} dB`;
+    else if(f.name==="spectral_profile" && e.rolloff_99_hz!=null)
+      extra = "99% roll-off " + (e.rolloff_99_hz/1000).toFixed(1) + " kHz";
+    return `<tr>
+      <td>${f.name}</td>
+      <td class="${sev}">${f.severity}</td>
+      <td class="n">${f.assessable ? f.risk.toFixed(2) : "–"}</td>
+      <td class="muted">${extra}</td></tr>`;
+  }).join("");
+  $("evtbl").querySelector("tbody").innerHTML =
+    `<tr><th>Detector</th><th>Severity</th><th class="n">Risk</th><th>Key number</th></tr>` + rows;
+}
+
+function renderTimeline(windows){
+  const tl = $("timeline"); tl.innerHTML = "";
+  if(!windows || !windows.length){ $("tlnote").textContent = "scored as a single clip"; return; }
+  let worst = windows[0];
+  for(const w of windows){
+    const seg = document.createElement("div");
+    seg.className = "seg-" + w.verdict;
+    seg.title = `${w.start_sec.toFixed(1)} s · ${w.verdict} · risk ${w.overall_risk.toFixed(2)}`;
+    tl.appendChild(seg);
+    if(rank(w.verdict) > rank(worst.verdict) || (w.verdict===worst.verdict && w.overall_risk>worst.overall_risk)) worst = w;
+  }
+  $("tlnote").textContent = `${windows.length} windows · worst at ${worst.start_sec.toFixed(1)} s (${worst.verdict})`;
+}
+function rank(v){ return {CLEAR:0,INSUFFICIENT_DATA:1,SUSPICIOUS:2,HIGH_RISK:3}[v] ?? 0; }
+
+function drawPSD(psd, ann){
+  const c = $("psd"), ctx = c.getContext("2d");
+  const W = c.width, H = c.height, padL = 46, padB = 26, padT = 10, padR = 10;
+  ctx.clearRect(0,0,W,H);
+  if(!psd || !psd.freqs_hz.length) return;
+  const fs = psd.freqs_hz, ps = psd.psd_db;
+  const fmax = fs[fs.length-1];
+  let dmin = Math.min(...ps), dmax = Math.max(...ps);
+  if(dmax-dmin < 6){ dmax += 3; dmin -= 3; }
+  const X = f => padL + (f/fmax)*(W-padL-padR);
+  const Y = v => padT + (1-(v-dmin)/(dmax-dmin))*(H-padT-padB);
+  // axes
+  ctx.strokeStyle = "#e3e6ea"; ctx.fillStyle = "#667085"; ctx.font = "11px sans-serif";
+  ctx.lineWidth = 1;
+  for(let k=0;k<=Math.floor(fmax/1000);k+=Math.max(2,Math.round(fmax/1000/8))){
+    const x = X(k*1000); ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,H-padB); ctx.strokeStyle="#f0f2f4"; ctx.stroke();
+    ctx.fillText(k+"k", x-6, H-padB+14);
+  }
+  // shade the out-of-band region (>18 kHz)
+  if(ann && ann.oob_edge_hz < fmax){
+    ctx.fillStyle = "rgba(192,57,43,0.05)";
+    ctx.fillRect(X(ann.oob_edge_hz), padT, X(fmax)-X(ann.oob_edge_hz), H-padT-padB);
+  }
+  // PSD line
+  ctx.strokeStyle = "#1f5fa8"; ctx.lineWidth = 1.4; ctx.beginPath();
+  fs.forEach((f,i)=>{ const x=X(f), y=Y(ps[i]); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+  ctx.stroke();
+  // 18 kHz edge
+  if(ann && ann.oob_edge_hz < fmax){
+    ctx.strokeStyle = "#c0392b"; ctx.setLineDash([4,3]); ctx.beginPath();
+    ctx.moveTo(X(ann.oob_edge_hz),padT); ctx.lineTo(X(ann.oob_edge_hz),H-padB); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // carrier peak
+  if(ann && ann.carrier_peak_hz && ann.carrier_peak_hz <= fmax){
+    const x = X(ann.carrier_peak_hz);
+    ctx.fillStyle = "#e08c14"; ctx.beginPath(); ctx.arc(x, Y(dmax)+6, 4, 0, 6.28); ctx.fill();
+    ctx.fillText((ann.carrier_peak_hz/1000).toFixed(1)+" kHz", x-14, Y(dmax)+2);
+  }
+  ctx.fillStyle="#667085"; ctx.fillText("dB", 6, padT+6); ctx.fillText("Hz", W-padR-16, H-padB+14);
+}
+
+async function runGate(){
+  if(!lastBlob){ return; }
+  const act = document.querySelector('input[name=act]:checked').value;
+  const fd = new FormData();
+  fd.append("file", lastBlob, lastName||"clip.wav");
+  fd.append("action", act); fd.append("window","1.0"); fd.append("hop","0.5");
+  const r = await fetch("/api/gate",{method:"POST", body:fd});
+  if(!r.ok){ const d=await r.json().catch(()=>({})); $("gateOut").innerHTML=`<span class="err">gate failed: ${d.detail||r.status}</span>`; return; }
+  const d = await r.json();
+  $("gateOut").innerHTML =
+    `<span class="decision d-${d.decision}">${d.decision.toUpperCase()}</span>
+     <div class="note" style="margin-top:8px">${d.reason}</div>`;
+}
+
+/* ---- mic recording: capture raw PCM at the AudioContext rate, encode WAV ---- */
+let recording=false, audioCtx=null, micStream=null, procNode=null, chunks=[], recRate=48000;
+async function toggleRec(){
+  if(recording){ stopRec(); return; }
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+  } catch(e){ showError("microphone unavailable: " + e); return; }
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  recRate = audioCtx.sampleRate;
+  const src = audioCtx.createMediaStreamSource(micStream);
+  procNode = audioCtx.createScriptProcessor(4096, 1, 1);
+  chunks = [];
+  procNode.onaudioprocess = e => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  src.connect(procNode); procNode.connect(audioCtx.destination);
+  recording = true; $("recBtn").textContent = "■ Stop"; $("recBtn").classList.add("primary");
+  setStatus(`Recording at ${(recRate/1000).toFixed(1)} kHz … click Stop when done.`);
+}
+function stopRec(){
+  recording=false; $("recBtn").textContent="● Record"; $("recBtn").classList.remove("primary");
+  if(procNode){ procNode.disconnect(); procNode.onaudioprocess=null; }
+  if(micStream){ micStream.getTracks().forEach(t=>t.stop()); }
+  if(audioCtx){ audioCtx.close(); }
+  const total = chunks.reduce((n,c)=>n+c.length,0);
+  const buf = new Float32Array(total); let o=0; chunks.forEach(c=>{buf.set(c,o);o+=c.length;});
+  lastBlob = encodeWAV(buf, recRate); lastName = "recording.wav";
+  setStatus(`Recorded ${(total/recRate).toFixed(1)} s at ${(recRate/1000).toFixed(1)} kHz. Scanning …`);
+  scan();
+}
+function encodeWAV(samples, rate){
+  const n=samples.length, buf=new ArrayBuffer(44+n*2), v=new DataView(buf);
+  const wr=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
+  wr(0,"RIFF"); v.setUint32(4,36+n*2,true); wr(8,"WAVE"); wr(12,"fmt ");
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,rate,true); v.setUint32(28,rate*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  wr(36,"data"); v.setUint32(40,n*2,true);
+  let o=44; for(let i=0;i<n;i++){ let s=Math.max(-1,Math.min(1,samples[i])); v.setInt16(o,s<0?s*0x8000:s*0x7FFF,true); o+=2; }
+  return new Blob([buf],{type:"audio/wav"});
+}
+</script>
+</body>
+</html>
