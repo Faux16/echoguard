@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from echoguard import Pipeline
 from echoguard.pipeline import CLEAR, HIGH_RISK, SUSPICIOUS, INSUFFICIENT_DATA
@@ -123,3 +124,28 @@ def test_noise_threshold_shrinks_with_more_segments():
     short = noise_prominence_threshold_db(welch_dof(int(0.1 * SR), SR), 384)
     long = noise_prominence_threshold_db(welch_dof(int(2.0 * SR), SR), 384)
     assert short > long > 0
+
+
+# --- the phase-2 target: detection on a device-realistic capture ---
+
+def _synth_attacks():
+    import os
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "benchmark"))
+    import synth_attacks as sa
+    return sa
+
+
+def test_adc_capture_keeps_benign_clear():
+    sa = _synth_attacks()
+    for kind in ("speech", "music", "silence"):
+        sig = sa.capture(sa.make_benign(sample_rate=192_000, kind=kind, seed=5), 192_000, 48_000)
+        assert Pipeline().analyze(sig, 48_000).verdict == CLEAR
+
+
+@pytest.mark.xfail(strict=True, reason="phase 2: the carrier is removed by the capture chain; "
+                                       "needs the baseband detector (BENCHMARK_REPORT §6b)")
+def test_adc_capture_attack_is_detected():
+    sa = _synth_attacks()
+    sig = sa.capture(sa.make_attack(sample_rate=192_000, carrier_hz=28_000.0, seed=3), 192_000, 48_000)
+    assert Pipeline().analyze(sig, 48_000).verdict in (HIGH_RISK, SUSPICIOUS)

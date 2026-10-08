@@ -28,5 +28,7 @@ jobs:
           python benchmark/corpus.py /tmp/benign
           python benchmark/evaluate.py /tmp/benign | tee /tmp/eval.txt
           grep -q "false-positive rate: 0%" /tmp/eval.txt
-          python benchmark/synth_attacks.py --evaluate --out /tmp/synth | tee /tmp/synth.txt
+          python benchmark/synth_attacks.py --evaluate --capture 0 --out /tmp/synth_raw | tee /tmp/synth.txt
           grep -q "12/12   false alarms (benign flagged): 0/12" /tmp/synth.txt
+      - name: device-realistic capture (informational until the baseband detector lands)
+        run: python benchmark/synth_attacks.py --evaluate --capture 48000 --out /tmp/synth_48k | tail -1
