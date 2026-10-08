@@ -110,12 +110,25 @@ def test_short_white_noise_is_not_flagged():
 
 def test_short_clip_carrier_still_flagged():
     """The CFAR threshold must not hide a real carrier in a short clip."""
-    n = int(0.2 * SR)
-    t = np.arange(n) / SR
     base = synth.benign_speechlike(duration=0.2, sample_rate=SR)
-    sig = base + 0.3 * np.sin(2 * np.pi * 21_000.0 * t)
+    carrier = synth.out_of_band(duration=0.2, sample_rate=SR, tone_hz=21_000.0, seed=9) - \
+        synth.benign_speechlike(duration=0.2, sample_rate=SR, seed=9) * 0.0
+    sig = base + 0.3 * carrier
     report = Pipeline().analyze(sig, SR)
     assert report.verdict in (SUSPICIOUS, HIGH_RISK)
+
+
+def test_bare_tone_is_a_beacon_not_a_carrier():
+    """An unmodulated 19 kHz tone (retail beacon, pilot, PSU whine) has no command sidebands."""
+    n = SR
+    t = np.arange(n) / SR
+    rng = np.random.default_rng(0)
+    sig = 0.02 * rng.standard_normal(n) + 0.5 * np.sin(2 * np.pi * 19_000.0 * t)
+    report = Pipeline().analyze(sig, SR)
+    carrier = next(f for f in report.findings if f.name == "carrier_peak")
+    assert carrier.evidence["sideband_db"] < -60
+    assert report.verdict == CLEAR
+    assert "beacon" in carrier.detail
 
 
 def test_noise_threshold_shrinks_with_more_segments():

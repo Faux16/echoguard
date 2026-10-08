@@ -162,14 +162,20 @@ def exp_C():
 # D. Evasion by level: set carrier amplitude so r hits target fractions
 # --------------------------------------------------------------------------- #
 def _probe_level(alpha, fc, fs, seed):
-    """Speech base + alpha*carrier (mirrors sensitivity.py probe), 1.0 s."""
+    """Speech base + alpha*carrier (mirrors sensitivity.py probe), 1.0 s.
+
+    The carrier is AM-modulated (depth 0.9) by speech-bandwidth noise, as an
+    injected command would modulate it; an unmodulated tone is a beacon.
+    """
     rng = np.random.default_rng(seed)
     n = int(1.0 * fs)
     sos = sps.butter(6, [150, 3800], btype="bandpass", fs=fs, output="sos")
     base = sps.sosfilt(sos, rng.standard_normal(n))
     base = base / (np.max(np.abs(base)) or 1.0)
+    mod = sps.sosfilt(sos, rng.standard_normal(n))
+    mod = mod / (np.max(np.abs(mod)) or 1.0)
     t = np.arange(n) / fs
-    sig = base + alpha * np.sin(2 * np.pi * fc * t)
+    sig = base + alpha * (1.0 + 0.9 * mod) * np.sin(2 * np.pi * fc * t)
     return norm(sig)
 
 

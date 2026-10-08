@@ -46,7 +46,7 @@ pythonpath = ["."]
 [tool.ruff]
 line-length = 110
 target-version = "py39"
-extend-exclude = ["fixtures"]
+extend-exclude = ["fixtures", "benchmark/baseband_study"]  # research scripts, kept as run
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "B", "UP"]
