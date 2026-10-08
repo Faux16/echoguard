@@ -102,16 +102,16 @@ Unchanged after both: sensitivity floor α = 0.051, 15–17 kHz blind band, synt
 
 ### 6b. Realistic capture chains: 0% detection
 
-The simulator writes 96 kHz audio with no anti-alias filter, so the carrier itself survives into the file. Real devices do not do that. Passing the same simulated attacks (synthesised at 192 kHz, carrier 28 kHz) through an 8th-order Butterworth anti-alias filter at 0.45 × f_s and a polyphase resampler:
+Until v0.2.0 the simulator wrote 96 kHz audio with no anti-alias filter, so the carrier itself survived into the file. Real devices do not do that. `synth_attacks.py` now synthesises at 192 kHz (so the microphone's 2·f_c product is represented rather than folded) and, by default, captures through a device ADC model: 8th-order Butterworth anti-alias filter at 0.45 × f_s, then a polyphase resampler. `--capture 0` keeps the raw audio.
 
-| Capture | Detected | Mean R | Energy above 18 kHz |
+| `--capture` | Detected | False alarms | Note |
 | --- | --- | --- | --- |
-| 96 kHz, no filter (as before) | 12/12 | 1.00 | 99.5% |
-| ADC → 48 kHz | **0/12** | 0.00 | 0.04% |
-| ADC → 44.1 kHz | **0/12** | 0.00 | 0.01% |
-| ADC → 16 kHz | 0/12 | — | INSUFFICIENT_DATA (12/12) |
+| 0 (raw 192 kHz, no filter) | 12/12 | 0/12 | the old benchmark; carrier present in the file |
+| 48000 | **4/12** | 0/12 | only the 24–25 kHz carriers: they sit in the filter's transition band and alias to 23–24 kHz. 28–38 kHz: 0/8 |
+| 44100 | **1/12** | 0/12 | |
+| 16000 | 0/12 | 0/12 | INSUFFICIENT_DATA on all 24 clips |
 
-After the chain the demodulated command sits in 0–8 kHz at the same level as the room audio (−0.08 dB relative), and nothing remains above 18 kHz. The current detectors measure the carrier, and the carrier is gone. Carriers at 25 kHz through a 48 kHz ADC are still caught (11–12/12) only because they sit in the filter's transition band and alias to 23 kHz; at 40 kHz they are not.
+The red-team run with a 28 kHz carrier alone gave 0/12 at both 48 and 44.1 kHz. After the chain the demodulated command sits in 0–8 kHz at the same level as the room audio (−0.08 dB relative), and nothing remains above 18 kHz (`benchmark/redteam/A_baseband_48k.png`). The current detectors measure the carrier, and the carrier is gone. The transition-band leak that saves the 24–25 kHz cases is real (MicGuard, USENIX 2024, builds a detector on it) but depends on the device's filter; a sigma-delta decimation filter is far steeper than this model. `tests/test_detectors.py::test_adc_capture_attack_is_detected` is marked xfail until a detector passes it.
 
 ### 6c. Real attack recordings: DolphinAttack public set
 

@@ -45,9 +45,16 @@ These are DETECTOR-VALIDATION FIXTURES. The modulating envelope is generic
 speech-like noise, not a spoken command; nothing here can control a device.
 The point is to make a *defensive* tool more trustworthy.
 
+  8. Device ADC          - anti-alias low-pass + resample to the capture rate
+                           (default 48 kHz). THIS IS THE STAGE THAT MATTERS:
+                           a real recording never contains the carrier, only
+                           what the mic non-linearity folded into baseband.
+                           --capture 0 keeps the raw synthesis-rate audio.
+
 Run:
     python benchmark/synth_attacks.py --out fixtures/synth --sr 96000 --n 12
-    python benchmark/synth_attacks.py --evaluate      # build + score with EchoGuard
+    python benchmark/synth_attacks.py --evaluate               # captured at 48 kHz (device-realistic)
+    python benchmark/synth_attacks.py --evaluate --capture 0   # raw 96 kHz (carrier still present)
 """
 
 from __future__ import annotations
@@ -249,18 +256,48 @@ _ATTACK_CONDITIONS = [
 _BENIGN_KINDS = ["speech", "music", "silence", "speech", "music", "speech"]
 
 
-def build_corpus(out_dir: str, sample_rate: int = 96_000, n: int = 12, seed: int = 0):
-    """Write n attack + n benign recordings under out_dir, return a manifest list."""
+# --------------------------------------------------------------------------- #
+# Stage 8: the device ADC (what a real recording keeps)
+# --------------------------------------------------------------------------- #
+def capture(sig: np.ndarray, sample_rate: int, capture_rate: int, order: int = 8) -> np.ndarray:
+    """Model a real device capture chain: anti-alias low-pass, then resample.
+
+    Phones, laptops and smart speakers store audio at 16-48 kHz behind an
+    anti-aliasing filter. An ultrasonic carrier does not survive this; only
+    the baseband residue the mic non-linearity folded down does. 8th-order
+    Butterworth (zero-phase) at 0.45 x capture_rate, then polyphase resample.
+    capture_rate <= 0 returns the input unchanged (the raw high-rate case).
+    """
+    if capture_rate <= 0 or capture_rate == sample_rate:
+        return sig
+    if capture_rate > sample_rate:
+        raise ValueError("capture_rate must not exceed the synthesis rate")
+    wc = 0.45 * capture_rate
+    sos = sps.butter(order, wc / (sample_rate / 2.0), btype="low", output="sos")
+    filtered = sps.sosfiltfilt(sos, sig)
+    g = np.gcd(int(sample_rate), int(capture_rate))
+    return sps.resample_poly(filtered, int(capture_rate) // g, int(sample_rate) // g).astype(np.float32)
+
+
+def build_corpus(out_dir: str, sample_rate: int = 192_000, n: int = 12, seed: int = 0,
+                 capture_rate: int = 48_000):
+    """Write n attack + n benign recordings under out_dir, return a manifest list.
+
+    Signals are synthesised at `sample_rate` and then captured at `capture_rate`
+    through the ADC model; pass capture_rate=0 to keep the raw high-rate audio.
+    """
     os.makedirs(out_dir, exist_ok=True)
     rng = np.random.default_rng(seed)
+    out_rate = capture_rate if capture_rate > 0 else sample_rate
     manifest = []
     for i in range(n):
         c_hz, dist, snr = _ATTACK_CONDITIONS[i % len(_ATTACK_CONDITIONS)]
         s = int(rng.integers(0, 1_000_000))
         sig = make_attack(sample_rate=sample_rate, carrier_hz=c_hz, distance_m=dist,
                           snr_db=snr, seed=s)
+        sig = capture(sig, sample_rate, capture_rate)
         p = os.path.join(out_dir, f"attack_{i:02d}_c{int(c_hz/1000)}k_d{dist}m_{int(snr)}db.wav")
-        _write(p, sig, sample_rate)
+        _write(p, sig, out_rate)
         manifest.append((p, "attack"))
     for i in range(n):
         kind = _BENIGN_KINDS[i % len(_BENIGN_KINDS)]
@@ -269,8 +306,9 @@ def build_corpus(out_dir: str, sample_rate: int = 96_000, n: int = 12, seed: int
         s = int(rng.integers(0, 1_000_000))
         sig = make_benign(sample_rate=sample_rate, distance_m=dist, snr_db=snr,
                           kind=kind, seed=s)
+        sig = capture(sig, sample_rate, capture_rate)
         p = os.path.join(out_dir, f"benign_{i:02d}_{kind}.wav")
-        _write(p, sig, sample_rate)
+        _write(p, sig, out_rate)
         manifest.append((p, "benign"))
     return manifest
 
@@ -278,12 +316,13 @@ def build_corpus(out_dir: str, sample_rate: int = 96_000, n: int = 12, seed: int
 # --------------------------------------------------------------------------- #
 # Optional: build + score with EchoGuard
 # --------------------------------------------------------------------------- #
-def evaluate(out_dir: str, sample_rate: int = 96_000, n: int = 12, seed: int = 0):
-    from echoguard.pipeline import Pipeline, HIGH_RISK, SUSPICIOUS
+def evaluate(out_dir: str, sample_rate: int = 192_000, n: int = 12, seed: int = 0,
+             capture_rate: int = 48_000):
+    from echoguard.pipeline import Pipeline, HIGH_RISK, SUSPICIOUS, INSUFFICIENT_DATA
 
-    manifest = build_corpus(out_dir, sample_rate, n, seed)
+    manifest = build_corpus(out_dir, sample_rate, n, seed, capture_rate)
     guard = Pipeline()
-    rows, tp, fp = [], 0, 0
+    rows, tp, fp, insuf = [], 0, 0, 0
     for path, truth in manifest:
         sr, data = wavfile.read(path)
         x = data.astype(np.float64) / 32768.0
@@ -294,11 +333,14 @@ def evaluate(out_dir: str, sample_rate: int = 96_000, n: int = 12, seed: int = 0
             tp += 1
         if truth == "benign" and flagged:
             fp += 1
+        if v == INSUFFICIENT_DATA:
+            insuf += 1
         rows.append((os.path.basename(path), truth, v, result.overall_risk))
 
     n_atk = sum(1 for _, t in manifest if t == "attack")
     n_ben = sum(1 for _, t in manifest if t == "benign")
-    print(f"\nRealistic synthetic corpus  (sr={sample_rate}, {n_atk} attack / {n_ben} benign)\n")
+    chain = f"captured at {capture_rate} Hz through the ADC model" if capture_rate > 0 else "raw, no ADC"
+    print(f"\nRealistic synthetic corpus  (synth {sample_rate} Hz, {chain}; {n_atk} attack / {n_ben} benign)\n")
     print(f"  {'file':42s} {'truth':8s} {'verdict':18s} risk")
     print("  " + "-" * 78)
     for name, truth, v, risk in rows:
@@ -306,7 +348,8 @@ def evaluate(out_dir: str, sample_rate: int = 96_000, n: int = 12, seed: int = 0
         print(f"  {name:42s} {truth:8s} {v:18s} {risk:.2f}{mark}")
     print("  " + "-" * 78)
     print(f"  detection (attacks flagged): {tp}/{n_atk}   "
-          f"false alarms (benign flagged): {fp}/{n_ben}")
+          f"false alarms (benign flagged): {fp}/{n_ben}   "
+          f"insufficient data: {insuf}/{n_atk + n_ben}")
     return rows
 
 
@@ -314,15 +357,20 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default="fixtures/synth", help="output directory")
-    ap.add_argument("--sr", type=int, default=96_000, help="sample rate (>=80k for 40kHz carriers)")
+    ap.add_argument("--sr", type=int, default=192_000,
+                    help="synthesis sample rate; must exceed 4x the highest carrier so the mic's 2fc "
+                         "product is represented rather than folded (default 192000)")
+    ap.add_argument("--capture", type=int, default=48_000,
+                    help="device capture rate through the ADC model (anti-alias + resample); "
+                         "0 = keep the raw synthesis-rate audio (default 48000)")
     ap.add_argument("--n", type=int, default=12, help="clips per class")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--evaluate", action="store_true", help="also score with EchoGuard")
     a = ap.parse_args()
     if a.evaluate:
-        evaluate(a.out, a.sr, a.n, a.seed)
+        evaluate(a.out, a.sr, a.n, a.seed, a.capture)
     else:
-        m = build_corpus(a.out, a.sr, a.n, a.seed)
+        m = build_corpus(a.out, a.sr, a.n, a.seed, a.capture)
         print(f"wrote {len(m)} clips to {a.out}")
 
 
