@@ -124,8 +124,23 @@ async function health() {
   try {
     const r = await fetch("/api/health"); const d = await r.json(); engine.ok = true; engine.info = d;
     $("#led").classList.remove("off"); $("#engState").textContent = "Engine online"; $("#engSub").textContent = "echoguard " + d.version + " · " + d.detectors.length + " detectors";
-  } catch { engine.ok = false; $("#led").classList.add("off"); $("#engState").textContent = "Engine offline"; $("#engSub").textContent = "start the server"; }
+    $("#footEng").textContent = `EchoGuard ${d.version} · engine online · up ${fmtUptime(d.uptime_s)}`;
+  } catch { engine.ok = false; $("#led").classList.add("off"); $("#engState").textContent = "Engine offline"; $("#engSub").textContent = "start the server"; $("#footEng").textContent = "EchoGuard · engine offline"; }
+  $("#footLed").classList.toggle("off", !engine.ok); renderFootPolicy();
   renderEngineCard();
+}
+function renderFootPolicy() { $("#footPolicy").textContent = "gate policy: " + (prefs.policy ? prefs.policyName : "Default"); }
+function paintThumbs() {
+  for (const card of $$(".sample")) {
+    const c = demoCache[card.dataset.demo]; if (!c) continue;
+    const cv = card.querySelector("canvas"), { ctx, W, H } = fit(cv); if (W < 2) continue;
+    const sp = c.data.spectrogram; paintGrid(ctx, decodeGrid(sp), sp.shape[0], sp.shape[1], 0, 0, W, H, sp.fmax_hz, "lin");
+    if (sp.fmax_hz > 18000) { const y = (1 - 18000 / sp.fmax_hz) * H; ctx.strokeStyle = "#f87171"; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  }
+}
+function renderARecent() {
+  const card = $("#aRecent"); card.classList.toggle("hidden", !history.length); if (!history.length) return;
+  $("#aRecentList").innerHTML = history.slice(0, 4).map(r => `<div class="r" data-open="${r.id}"><div class="n"><b>${esc(r.name)}</b><span>${fmtWhen(r.ts)} · ${(r.sr / 1000).toFixed(1)} kHz · ${r.source || "upload"}</span></div>${rbar(r.risk, r.verdict)}${vtag(r.verdict)}</div>`).join("");
 }
 
 /* ============================================================ navigation */
@@ -158,6 +173,7 @@ function go(v, opts = {}) {
   if (v === "policies") renderPolicies();
   if (v === "coverage") renderCovPolicy();
   if (v === "settings") renderSettings();
+  if (v === "api") apiPing();
   if (!opts.silent) { try { window.history.replaceState(null, "", "#" + v); } catch { /* file: */ } }
   window.scrollTo({ top: 0 });
   requestAnimationFrame(redraw);
@@ -165,6 +181,7 @@ function go(v, opts = {}) {
 document.addEventListener("click", e => { const g = e.target.closest("[data-go]"); if (g) { e.preventDefault(); go(g.dataset.go); } });
 function redraw() {
   if (currentView === "analyze" && state.data) drawAnalyze();
+  if (currentView === "analyze" && !state.data) { paintThumbs(); renderARecent(); }
   if (currentView === "live") { drawWaterfall(); drawStrip(); }
   if (currentView === "coverage") drawCoverage();
   if (currentView === "overview") { drawTrend(); drawOvCov(); }
@@ -689,10 +706,7 @@ async function initSamples() {
   for (const card of $$(".sample")) {
     const kind = card.dataset.demo;
     card.onclick = async () => { card.style.opacity = .6; await openDemo(kind); card.style.opacity = 1; };
-    try { const c = await loadDemo(kind); const cv = card.querySelector("canvas"), { ctx, W, H } = fit(cv);
-      const sp = c.data.spectrogram; paintGrid(ctx, decodeGrid(sp), sp.shape[0], sp.shape[1], 0, 0, W, H, sp.fmax_hz, "lin");
-      if (sp.fmax_hz > 18000) { const y = (1 - 18000 / sp.fmax_hz) * H; ctx.strokeStyle = "#f87171"; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-    } catch { /* engine offline: card still clickable */ }
+    try { await loadDemo(kind); paintThumbs(); } catch { /* engine offline: card still clickable */ }
   }
 }
 
@@ -745,7 +759,14 @@ function resetLive() {
   live.hist = []; live.unseen = 0; live.flags = []; $("#lLog").innerHTML = '<div class="faint ph">No events yet.</div>';
   live.wf = document.createElement("canvas"); live.wf.width = live.cols; live.wf.height = live.wfF;
   const c = live.wf.getContext("2d"); c.fillStyle = "#04060c"; c.fillRect(0, 0, live.cols, live.wfF);
-  $("#lN").textContent = 0; $("#lF").textContent = 0; drawWaterfall(); drawStrip();
+  $("#lN").textContent = 0; $("#lF").textContent = 0; renderLiveStats(); drawWaterfall(); drawStrip();
+}
+function renderLiveStats() {
+  const h = live.hist, n = h.length, flags = h.filter(x => isFlag(x.v)).length, scored = h.filter(x => x.v !== "INSUFFICIENT_DATA");
+  const peak = scored.length ? Math.max(...scored.map(x => x.r)) : null, mean = scored.length ? scored.reduce((a, x) => a + x.r, 0) / scored.length : null;
+  const last = h.length ? h[h.length - 1] : null;
+  $("#lStats").innerHTML = [["Windows scored", n], ["Flagged", flags ? `<span style="color:var(--bad)">${flags}</span>` : "0"], ["Peak risk", peak == null ? "—" : peak.toFixed(2)], ["Mean risk", mean == null ? "—" : mean.toFixed(2)],
+    ["Last flag", (() => { const f = [...h].reverse().find(x => isFlag(x.v)); return f ? f.t : "—"; })()], ["Current", last ? VERDICT[last.v].label : "idle"]].map(([k, v]) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`).join("");
 }
 function setLiveState(on, label, rate) {
   $("#lDot").classList.toggle("on", on); $("#lState").textContent = label; $("#lRate").textContent = rate || "—";
@@ -794,7 +815,7 @@ function liveAdd(d, blob) {
   $("#lRisk").textContent = d.overall_risk.toFixed(2); $("#lRisk").style.color = v.hex;
   $("#lTag").className = "tag t-" + d.verdict; $("#lTagT").textContent = v.label;
   const flags = live.hist.filter(x => isFlag(x.v)).length;
-  $("#lN").textContent = live.hist.length; $("#lF").textContent = flags;
+  $("#lN").textContent = live.hist.length; $("#lF").textContent = flags; renderLiveStats();
   if (isFlag(d.verdict)) {
     if ($("#lLog .ph")) $("#lLog").innerHTML = "";
     const fc = carrierFound(d) ? d.annotations.carrier_peak_hz : null;
@@ -873,7 +894,8 @@ function renderBatch() {
   kpiCards($("#bkpis"), [["Scored", done.length, "var(--text)"], ["Clear", cnt("CLEAR"), "var(--ok)"], ["Flagged", cnt("SUSPICIOUS") + cnt("HIGH_RISK"), "var(--bad)", `${cnt("SUSPICIOUS")} suspicious · ${cnt("HIGH_RISK")} high risk`], ["Insufficient data", cnt("INSUFFICIENT_DATA"), "var(--na)"]]);
   const f = batch.filter, keep = r => f === "all" || (f === "flag" ? isFlag(r.verdict) : r.verdict === f);
   const rows = sortRows(R.filter(keep), batch.sortK, batch.dir); markHeads("#v-batch", batch);
-  if (!R.length) { $("#bBody").innerHTML = `<tr><td colspan="7"><div class="empty"><b>No files yet</b>Drop WAV files above, or add them with the button.</div></td></tr>`; return; }
+  $("#bEmpty").classList.toggle("hidden", !!R.length); $("#bTable").classList.toggle("hidden", !R.length);
+  if (!R.length) { $("#bEmpty").innerHTML = `${icon("batch")}<b style="margin-top:10px">No files yet</b>Drop WAV files above, or add them with the button. Each file is scored by the engine and added to History.`; return; }
   $("#bBody").innerHTML = rows.map(r => `<tr class="click" data-i="${R.indexOf(r)}"><td><div class="row" style="gap:8px">${icon("file")}${esc(r.name)}</div></td><td>${!r.verdict ? `<span class="spin"></span>` : vtag(r.verdict)}</td><td class="n">${rbar(r.risk, r.verdict)}</td>
       <td class="n">${r.sr ? (r.sr / 1000).toFixed(1) + " kHz" : "—"}</td><td class="n">${r.dur != null ? r.dur.toFixed(2) + " s" : "—"}</td><td class="n">${fmtPct(r.oob)}</td><td class="n">${r.car ? (r.car / 1000).toFixed(2) + " kHz" : "—"}</td></tr>`).join("");
   $$("#bBody tr[data-i]").forEach(tr => tr.onclick = () => { const r = R[+tr.dataset.i]; if (r.data) analyzeBlob(r.file, r.name, r.data, { id: r.id, source: "batch" }); });
@@ -897,8 +919,9 @@ function renderHistory() {
   const cnt = v => history.filter(r => r.verdict === v).length;
   kpiCards($("#hkpis"), [["Stored", history.length, "var(--text)", `${(bytes / 1048576).toFixed(1)} MB of audio`], ["Clear", cnt("CLEAR"), "var(--ok)"], ["Flagged", cnt("SUSPICIOUS") + cnt("HIGH_RISK"), "var(--bad)", `${cnt("SUSPICIOUS")} suspicious · ${cnt("HIGH_RISK")} high risk`], ["Insufficient data", cnt("INSUFFICIENT_DATA"), "var(--na)", "below 36 kHz"]]);
   $("#hCount").textContent = `${rows.length} of ${history.length}`; $("#hSub").textContent = `${history.length} capture${history.length === 1 ? "" : "s"} · ${(bytes / 1048576).toFixed(1)} MB · stored locally in this browser`;
-  if (!history.length) { $("#hBody").innerHTML = `<tr><td colspan="7"><div class="empty"><b>No captures yet</b>Analyses are saved here automatically (Settings → Data).</div></td></tr>`; return; }
-  if (!rows.length) { $("#hBody").innerHTML = `<tr><td colspan="7"><div class="empty">Nothing matches.</div></td></tr>`; return; }
+  $("#hEmpty").classList.toggle("hidden", !!rows.length); $("#hTable").classList.toggle("hidden", !rows.length);
+  if (!history.length) { $("#hEmpty").innerHTML = `${icon("history")}<b style="margin-top:10px">No captures yet</b>Analyses are saved here automatically (Settings → Data &amp; privacy).`; return; }
+  if (!rows.length) { $("#hEmpty").innerHTML = `${icon("search")}<b style="margin-top:10px">Nothing matches</b>Try another search or filter.`; return; }
   $("#hBody").innerHTML = rows.map(r => `<tr class="click" data-id="${r.id}"><td class="faint" style="white-space:nowrap">${fmtWhen(r.ts)}</td><td><div class="row" style="gap:8px">${icon("file")}<span>${esc(r.name)}${r.note ? `<div class="faint" style="font-size:11.5px;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.note)}</div>` : ""}</span></div></td><td>${vtag(r.verdict)}</td><td class="n">${rbar(r.risk, r.verdict)}</td>
     <td class="n">${(r.sr / 1000).toFixed(1)} kHz</td><td>${(r.tags || []).map(t => `<span class="chip">${esc(t)}</span>`).join(" ")}</td>
     <td class="n" style="white-space:nowrap"><button class="btn sm ghost" data-cmp="${r.id}" title="Compare">${icon("compare")}</button> <button class="btn sm ghost" data-del="${r.id}" title="Delete">${icon("trash")}</button></td></tr>`).join("");
@@ -985,8 +1008,10 @@ function renderPolState() {
   const same = JSON.stringify(polDraft) === JSON.stringify(activePolicy());
   $("#polState").innerHTML = same ? `active: <b class="muted">${esc(prefs.policy ? prefs.policyName : "Default")}</b>` : `editing <b class="muted">${esc(polDraftName)}</b> · unsaved`;
   $("#polSave").disabled = same;
+  $("#polJson").innerHTML = esc(JSON.stringify(polDraft, null, 2)) + `<button class="copy">Copy</button>`;
+  $("#polJson .copy").onclick = () => navigator.clipboard?.writeText(JSON.stringify(polDraft)).then(() => toast("Policy JSON copied", "ok", 1200));
 }
-$("#polSave").onclick = () => { const isDefault = JSON.stringify(polDraft) === JSON.stringify(defaultPolicy()); prefs.policy = isDefault ? null : polDraft; prefs.policyName = isDefault ? "Default" : polDraftName; savePrefs(); renderPolicies(); toast(`Policy "${prefs.policyName}" is now active`, "ok"); if (state.data) $("#gatePolicyName").textContent = "policy: " + prefs.policyName; };
+$("#polSave").onclick = () => { const isDefault = JSON.stringify(polDraft) === JSON.stringify(defaultPolicy()); prefs.policy = isDefault ? null : polDraft; prefs.policyName = isDefault ? "Default" : polDraftName; savePrefs(); renderPolicies(); renderFootPolicy(); toast(`Policy "${prefs.policyName}" is now active`, "ok"); if (state.data) $("#gatePolicyName").textContent = "policy: " + prefs.policyName; };
 $("#polReset").onclick = () => { polDraft = JSON.parse(JSON.stringify(defaultPolicy())); polDraftName = "Default"; renderPolicies(); };
 function renderCovPolicy() { $("#covPolicy").innerHTML = policyTable(activePolicy(), false) + `<div class="faint" style="font-size:12px;margin-top:8px">Active: ${esc(prefs.policy ? prefs.policyName : "Default (engine)")}</div>`; }
 
@@ -1070,6 +1095,15 @@ function renderSettings() {
   $("#setClear").onclick = () => $("#hClear").click();
   navigator.storage?.estimate?.().then(e => { const q = $("#quota"), b = $("#quotaBar"); if (q && e.quota) { q.textContent = `${(e.usage / 1048576).toFixed(1)} of ${(e.quota / 1073741824).toFixed(1)} GB used`; b.style.width = Math.max(1, e.usage / e.quota * 100) + "%"; } });
 }
+
+/* ============================================================ api view */
+const API_FIELDS = [["verdict", "CLEAR · SUSPICIOUS · HIGH_RISK · INSUFFICIENT_DATA"], ["overall_risk", "R = √(ρA × ρB), 0–1"], ["findings[]", "per detector: name, risk, severity, assessable, detail, evidence{}"],
+  ["annotations", "oob_ratio, oob_level_dbfs, carrier_peak_hz, carrier_prominence_db, carrier_sideband_db, nyquist_hz"], ["thresholds", "the engine constants the meters are drawn against"],
+  ["psd", "Welch spectrum, ≤ 1024 points (freqs_hz, psd_db)"], ["spectrogram", "STFT grid as base64 uint8, rows high→low frequency, with dB range and extents"], ["waveform", "peak envelope, 900 points in [0,1]"],
+  ["windows[]", "start_sec, verdict, overall_risk per window"], ["capture_note", "plain-language note about the sample rate"], ["analysis_ms", "engine time for this scan"]];
+$("#apiFields").innerHTML = API_FIELDS.map(([k, v]) => `<div class="kv"><span class="mono" style="color:var(--text)">${k}</span><b style="font-weight:400;color:var(--text-3);max-width:62%">${v}</b></div>`).join("");
+async function apiPing() { $("#apiHealth").textContent = "…"; try { const r = await fetch("/api/health"); $("#apiHealth").textContent = JSON.stringify(await r.json(), null, 2); } catch (e) { $("#apiHealth").textContent = "offline: " + e.message; } }
+$("#apiPing").onclick = apiPing;
 
 /* ============================================================ misc & boot */
 $$(".copy").forEach(b => b.onclick = e => { e.stopPropagation(); const txt = b.parentElement.childNodes[0].textContent.trim(); navigator.clipboard?.writeText(txt).then(() => { b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy", 1200); toast("Copied to clipboard", "ok", 1200); }); });

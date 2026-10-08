@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/console.css?v=4">
+<link rel="stylesheet" href="/static/console.css?v=5">
 <script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
 </head>
 <body>
@@ -70,6 +70,13 @@
               <div class="sample" data-demo="phone"><canvas class="thumb"></canvas><div><h4>Phone capture</h4><p>The same injection recorded at 16 kHz</p><span class="tag sm t-INSUFFICIENT_DATA"><span class="d"></span>expected insufficient data</span></div></div>
             </div>
           </div>
+          <div class="how">
+            <div class="step"><i>1</i><b>Capture</b><span>A WAV at ≥ 44.1 kHz. Below that, Nyquist sits under the 18 kHz band and the screen reports insufficient data rather than guessing.</span></div>
+            <div class="step"><i>2</i><b>Measure</b><span>Welch spectrum per 1 s window: share of energy above 18 kHz (ρA) and a CFAR-detected narrowband peak above 15 kHz with its modulation sidebands (ρB).</span></div>
+            <div class="step"><i>3</i><b>Decide</b><span>R = √(ρA × ρB) — both signatures must be present. ≥ 0.33 suspicious, ≥ 0.66 high risk. The worst window decides.</span></div>
+            <div class="step"><i>4</i><b>Gate</b><span>Verdict × action class → allow, confirm or block, under the policy you set. Nothing here reads or reconstructs a command.</span></div>
+          </div>
+          <div class="card" id="aRecent" style="margin-top:var(--gap)"><div class="card-h"><h3>Recent captures</h3><div class="right"><button class="btn sm ghost" data-go="history">View all</button></div></div><div class="card-b recent" id="aRecentList"></div></div>
         </div>
         <div id="a-main" class="hidden">
           <div class="pagehead">
@@ -125,7 +132,8 @@
             <div class="card"><div class="card-h"><h3>Current window</h3></div><div class="card-b" style="display:grid;place-items:center;gap:10px">
               <div class="ring"><svg viewBox="0 0 132 132"><circle cx="66" cy="66" r="54" fill="none" stroke="var(--track)" stroke-width="11" pathLength="100" stroke-dasharray="75 100" stroke-linecap="round"/><circle id="lArc" cx="66" cy="66" r="54" fill="none" stroke="var(--accent)" stroke-width="11" pathLength="100" stroke-dasharray="0 100" stroke-linecap="round" style="transition:stroke-dasharray .4s"/></svg><div class="val"><b id="lRisk">—</b><span>risk score</span></div></div>
               <span class="tag t-INSUFFICIENT_DATA" id="lTag"><span class="d"></span><span id="lTagT">Idle</span></span><div class="faint" id="lNote" style="font-size:12.5px;text-align:center">Start the microphone, or play a simulated stream. Nothing is stored.</div></div></div>
-            <div class="card"><div class="card-h"><h3>Event log</h3><span class="sub">flagged windows</span><div class="right"><button class="btn sm ghost" id="lSave">Save flags to history</button></div></div><div class="card-b"><div class="log" id="lLog"><div class="faint ph">No events yet.</div></div></div></div>
+            <div class="card"><div class="card-h"><h3>Session</h3></div><div class="card-b" id="lStats"></div></div>
+            <div class="card"><div class="card-h"><h3>Event log</h3><div class="right"><button class="btn sm ghost" id="lSave">Save flags</button></div></div><div class="card-b"><div class="log" id="lLog"><div class="faint ph">No events yet.</div></div></div></div>
           </div>
         </div>
       </section>
@@ -136,8 +144,8 @@
           <div class="acts"><button class="btn ghost" id="csvBtn"><span class="ico-slot" data-ico="download"></span>Export CSV</button><button class="btn ghost" id="clearBtn">Clear</button><button class="btn primary" id="batchPick"><span class="ico-slot" data-ico="upload"></span>Add WAVs</button></div></div>
         <div class="dropzone dz-sm" id="bdz"><span class="ico-slot" data-ico="upload"></span><div><b>Drop WAV files</b><div class="faint" style="font-size:12.5px">or click to choose several · scored one at a time</div></div></div>
         <div class="kpis" id="bkpis" style="margin-top:var(--gap)"></div>
-        <div class="card"><div class="card-h"><h3>Results</h3><span class="sub" id="bCount">0 files</span><div class="right"><div class="seg" id="bFilter"><button data-f="all" class="on">All</button><button data-f="flag">Flagged</button><button data-f="CLEAR">Clear</button><button data-f="INSUFFICIENT_DATA">Insufficient</button></div></div></div>
-          <div class="card-b tablewrap" style="padding-top:6px"><table><thead><tr><th class="sortable" data-k="name">File</th><th class="sortable" data-k="verdict">Verdict</th><th class="sortable n" data-k="risk">Risk</th><th class="sortable n" data-k="sr">Rate</th><th class="sortable n" data-k="dur">Duration</th><th class="sortable n" data-k="oob">Above 18 kHz</th><th class="sortable n" data-k="car">Carrier</th></tr></thead><tbody id="bBody"></tbody></table></div></div>
+        <div class="card fill"><div class="card-h"><h3>Results</h3><span class="sub" id="bCount">0 files</span><div class="right"><div class="seg" id="bFilter"><button data-f="all" class="on">All</button><button data-f="flag">Flagged</button><button data-f="CLEAR">Clear</button><button data-f="INSUFFICIENT_DATA">Insufficient</button></div></div></div>
+          <div class="card-b" style="padding-top:6px"><div class="empty hidden" id="bEmpty"></div><div class="tablewrap" id="bTable"><table><thead><tr><th class="sortable" data-k="name">File</th><th class="sortable" data-k="verdict">Verdict</th><th class="sortable n" data-k="risk">Risk</th><th class="sortable n" data-k="sr">Rate</th><th class="sortable n" data-k="dur">Duration</th><th class="sortable n" data-k="oob">Above 18 kHz</th><th class="sortable n" data-k="car">Carrier</th></tr></thead><tbody id="bBody"></tbody></table></div></div></div>
       </section>
 
       <!-- COMPARE -->
@@ -152,16 +160,24 @@
         <div class="pagehead"><div><h1>History</h1><div class="sub" id="hSub">Stored locally in this browser</div></div>
           <div class="acts"><button class="btn ghost" id="hExport"><span class="ico-slot" data-ico="download"></span>Export JSON</button><button class="btn ghost" id="hCsv"><span class="ico-slot" data-ico="download"></span>CSV</button><button class="btn danger" id="hClear">Clear history</button></div></div>
         <div class="kpis" id="hkpis"></div>
-        <div class="card"><div class="card-h"><div class="filters"><input class="inp" id="hQ" placeholder="Search name, tag, note…" style="width:260px"><div class="seg" id="hFilter"><button data-f="all" class="on">All</button><button data-f="flag">Flagged</button><button data-f="CLEAR">Clear</button><button data-f="INSUFFICIENT_DATA">Insufficient</button></div></div><div class="right"><span class="sub" id="hCount"></span></div></div>
-          <div class="card-b tablewrap" style="padding-top:6px"><table><thead><tr><th class="sortable" data-k="ts">When</th><th class="sortable" data-k="name">Capture</th><th class="sortable" data-k="verdict">Verdict</th><th class="sortable n" data-k="risk">Risk</th><th class="sortable n" data-k="sr">Rate</th><th>Tags</th><th></th></tr></thead><tbody id="hBody"></tbody></table></div></div>
+        <div class="card fill"><div class="card-h"><div class="filters"><input class="inp" id="hQ" placeholder="Search name, tag, note…" style="width:260px"><div class="seg" id="hFilter"><button data-f="all" class="on">All</button><button data-f="flag">Flagged</button><button data-f="CLEAR">Clear</button><button data-f="INSUFFICIENT_DATA">Insufficient</button></div></div><div class="right"><span class="sub" id="hCount"></span></div></div>
+          <div class="card-b" style="padding-top:6px"><div class="empty hidden" id="hEmpty"></div><div class="tablewrap" id="hTable"><table><thead><tr><th class="sortable" data-k="ts">When</th><th class="sortable" data-k="name">Capture</th><th class="sortable" data-k="verdict">Verdict</th><th class="sortable n" data-k="risk">Risk</th><th class="sortable n" data-k="sr">Rate</th><th>Tags</th><th></th></tr></thead><tbody id="hBody"></tbody></table></div></div></div>
       </section>
 
       <!-- POLICIES -->
       <section class="view" id="v-policies">
         <div class="pagehead"><div><h1>Gate policies</h1><div class="sub">What an agent does for each verdict and action class. The active policy is sent to the engine with every gate evaluation.</div></div>
           <div class="acts"><button class="btn ghost" id="polReset">Reset to default</button><button class="btn primary" id="polSave"><span class="ico-slot" data-ico="check"></span>Save as active</button></div></div>
-        <div class="grid2">
-          <div class="card"><div class="card-h"><h3>Policy matrix</h3><span class="sub" id="polState"></span></div><div class="card-b tablewrap" id="polMatrix"></div></div>
+        <div class="polgrid">
+          <div class="stack">
+            <div class="card"><div class="card-h"><h3>Policy matrix</h3><span class="sub" id="polState"></span></div><div class="card-b tablewrap" id="polMatrix"></div></div>
+            <div class="card"><div class="card-h"><h3>What each decision means</h3><span class="sub">for an agent, and for the CLI</span></div><div class="card-b"><div class="dec">
+              <span class="big g-allow">ALLOW</span><span>Execute the action. The capture shows no injection signature at a level the policy cares about.</span><code>exit 0</code>
+              <span class="big g-confirm">CONFIRM</span><span>Pause and ask the user through a channel the attacker cannot reach — a screen tap, a second device, a spoken passphrase.</span><code>exit 7</code>
+              <span class="big g-block">BLOCK</span><span>Refuse and log. Do not reveal what was detected; surface it in the audit trail.</span><code>exit 8</code>
+            </div></div></div>
+            <div class="card"><div class="card-h"><h3>Policy as JSON</h3><span class="sub">what the console sends as <span class="mono">policy</span></span></div><div class="card-b"><div class="code" id="polJson"></div></div></div>
+          </div>
           <div class="stack">
             <div class="card"><div class="card-h"><h3>Presets</h3></div><div class="card-b presets" id="polPresets"></div></div>
             <div class="card"><div class="card-h"><h3>Dry run</h3><span class="sub">gate a stored capture under the policy being edited</span></div><div class="card-b">
@@ -200,6 +216,10 @@
 report = Pipeline().analyze_windows(samples, sample_rate).summary
 result = ConfirmationGate().evaluate(samples, sample_rate, ActionSensitivity.CRITICAL)
 print(report.verdict, result.decision)<button class="copy">Copy</button></div></div></div>
+        <div class="grid2" style="margin-top:var(--gap)">
+          <div class="card"><div class="card-h"><h3>Scan response</h3><span class="sub">fields and what they mean</span></div><div class="card-b" id="apiFields"></div></div>
+          <div class="card"><div class="card-h"><span class="ep"><span class="m get">GET</span>/api/health</span><span class="sub">live from this server</span><div class="right"><button class="btn sm ghost" id="apiPing">Refresh</button></div></div><div class="card-b"><div class="code" id="apiHealth" style="margin-top:0;max-height:360px"></div></div></div>
+        </div>
       </section>
 
       <!-- SETTINGS -->
@@ -217,12 +237,13 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
           </div>
         </div>
       </section>
+      <footer class="foot"><span class="led" id="footLed"></span><span id="footEng">EchoGuard</span><span class="sep">·</span><span>Defensive screen — probe signals carry no command content</span><span class="sep">·</span><a href="https://github.com/swarnali2k17/echoguard" target="_blank" rel="noopener">Source</a><span class="sep">·</span><a href="#" data-go="api">API</a><span class="sep">·</span><a href="#" data-go="coverage">Limits</a><span class="sep">·</span><span id="footPolicy"></span></footer>
     </main>
   </div>
 </div>
 <div class="toasts" id="toasts"></div>
 <div id="paletteMount"></div>
 <input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
-<script src="/static/console.js?v=4"></script>
+<script src="/static/console.js?v=5"></script>
 </body>
 </html>
