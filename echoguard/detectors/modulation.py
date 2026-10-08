@@ -45,6 +45,23 @@ NARROW_INNER = 2
 NARROW_OUTER = 20
 NARROW_FLOOR = 0.60
 NARROW_FULL = 0.85
+# A carrier that injects a command is MODULATED by it, so it carries sidebands
+# spanning the command's bandwidth (+-150 Hz .. 4 kHz around the line). An
+# unmodulated tone - a retail beacon, a power-supply whine, a pilot - has
+# none. Sideband ratio = energy above the local floor at |f - f_peak| in
+# [SIDEBAND_LOW, SIDEBAND_HIGH] over energy within +-SIDEBAND_LINE bins of the
+# peak, in dB. Below SIDEBAND_FLOOR_DB the peak is treated as a bare tone and
+# the carrier risk is scaled down to BARE_TONE_RISK_SCALE (reported in the
+# evidence and detail, but it no longer corroborates an injection).
+# Measured: speech-bandwidth AM attacks -18 to -35 dB (depth 0.5-0.9, 15-35 dB
+# SNR, through a 48 kHz ADC -4 dB); a 19 kHz beacon, a 20-22 kHz PSU whine and
+# a pure probe tone -98 to -130 dB.
+SIDEBAND_LOW = 150.0
+SIDEBAND_HIGH = 4_000.0
+SIDEBAND_LINE_BINS = 3
+SIDEBAND_FLOOR_DB = -60.0
+SIDEBAND_FULL_DB = -35.0
+BARE_TONE_RISK_SCALE = 0.05
 
 _EMPTY_EVIDENCE = {
     "assessable": None,
@@ -54,8 +71,30 @@ _EMPTY_EVIDENCE = {
     "noise_threshold_db": None,
     "excess_db": None,
     "narrowness": None,
+    "sideband_db": None,
     "welch_dof": None,
 }
+
+
+def sideband_ratio_db(freqs: np.ndarray, psd: np.ndarray, peak_freq: float) -> float:
+    """Modulation sidebands around `peak_freq`, relative to the line itself, in dB.
+
+    Both are measured as power in excess of a local floor (the running median
+    over +-150 Hz). The excess is taken over the whole region, not bin by bin,
+    so that broadband noise under the carrier - whose bins scatter above and
+    below the floor - nets to about zero rather than accumulating its positive
+    half as if it were modulation.
+    """
+    df = float(freqs[1] - freqs[0]) if len(freqs) > 1 else 1.0
+    half = max(3, int(round(150.0 / df)))
+    pad = np.pad(psd, half, mode="edge")
+    floor = np.array([np.median(pad[i:i + 2 * half + 1]) for i in range(len(psd))])
+    d = np.abs(freqs - peak_freq)
+    in_line = d <= SIDEBAND_LINE_BINS * df
+    in_side = (d >= SIDEBAND_LOW) & (d <= SIDEBAND_HIGH)
+    line = max(float((psd[in_line] - floor[in_line]).sum()), 0.0)
+    side = max(float((psd[in_side] - floor[in_side]).sum()), 0.0)
+    return float(10.0 * np.log10((side + 1e-30) / (line + 1e-30)))
 
 
 def peak_narrowness(band: np.ndarray, k: int) -> float:
@@ -129,18 +168,29 @@ class CarrierPeakDetector(Detector):
         excess_db = prominence_db - threshold_db
         narrowness = peak_narrowness(band, k)
         narrow_factor = clip01((narrowness - NARROW_FLOOR) / (NARROW_FULL - NARROW_FLOOR))
+        sideband_db = sideband_ratio_db(freqs, psd, peak_freq)
+        mod_factor = BARE_TONE_RISK_SCALE + (1.0 - BARE_TONE_RISK_SCALE) * clip01(
+            (sideband_db - SIDEBAND_FLOOR_DB) / (SIDEBAND_FULL_DB - SIDEBAND_FLOOR_DB))
+        bare_tone = sideband_db < SIDEBAND_FLOOR_DB
 
-        risk = clip01(excess_db / PROMINENCE_DB_SATURATION) * narrow_factor
+        risk = clip01(excess_db / PROMINENCE_DB_SATURATION) * narrow_factor * mod_factor
         if risk >= 0.66:
             detail = (
                 f"Dominant narrowband tone at {peak_freq/1000:.1f} kHz stands "
-                f"{prominence_db:.0f} dB above the local noise floor - the signature of "
-                f"a modulated ultrasonic carrier, not speech or music."
+                f"{prominence_db:.0f} dB above the local noise floor with modulation "
+                f"sidebands ({sideband_db:.0f} dB) - the signature of a modulated "
+                f"ultrasonic carrier, not speech or music."
             )
         elif risk >= 0.33:
             detail = (
                 f"Elevated narrowband energy at {peak_freq/1000:.1f} kHz "
                 f"({prominence_db:.0f} dB above floor); unusual for speech."
+            )
+        elif bare_tone and excess_db > 0 and narrow_factor > 0:
+            detail = (
+                f"Steady unmodulated tone at {peak_freq/1000:.1f} kHz "
+                f"({prominence_db:.0f} dB above floor, sidebands {sideband_db:.0f} dB): "
+                f"a beacon, pilot or power-supply whine rather than a command carrier."
             )
         elif excess_db > 0 and narrow_factor < 1.0:
             detail = (
@@ -162,6 +212,7 @@ class CarrierPeakDetector(Detector):
                 "noise_threshold_db": float(threshold_db),
                 "excess_db": float(excess_db),
                 "narrowness": narrowness,
+                "sideband_db": sideband_db,
                 "welch_dof": float(dof),
             },
         )

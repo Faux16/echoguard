@@ -168,18 +168,47 @@ def _bandpass(sig, sample_rate, low, high):
 # --------------------------------------------------------------------------- #
 # Full pipelines
 # --------------------------------------------------------------------------- #
+def _modulating_signal(modulator, n: int, sample_rate: int, rng: np.random.Generator) -> np.ndarray:
+    """The baseband 'command' that rides on the carrier, zero-mean, peak 1.
+
+    "voiceband" (default): band-limited noise 150 Hz-4 kHz shaped by a
+        syllable-rate envelope. No phonetic content, but the BANDWIDTH of a
+        spoken command, so the carrier's sidebands span +-150 Hz..4 kHz as a
+        real attack's do. A detector can tell this from an unmodulated tone.
+    "envelope": the syllable-rate envelope alone (the pre-v0.2.0 behaviour).
+        Its sidebands sit within +-20 Hz of the carrier, which no real
+        command produces; kept for the sensitivity sweeps.
+    an array: a real speech recording at `sample_rate` (resampled/padded here),
+        for experiments with genuine voice structure.
+    """
+    if isinstance(modulator, np.ndarray):
+        m = np.asarray(modulator, dtype=np.float64)
+        if len(m) < n:
+            m = np.pad(m, (0, n - len(m)))
+        m = m[:n] - np.mean(m[:n])
+    elif modulator == "envelope":
+        env = _speechlike_envelope(n, sample_rate, rng)
+        m = env - env.mean()
+    elif modulator == "voiceband":
+        env = _speechlike_envelope(n, sample_rate, rng)
+        m = _voiceband_content(n, sample_rate, rng) * env
+    else:
+        raise ValueError(f"unknown modulator {modulator!r}")
+    peak = float(np.max(np.abs(m))) or 1.0
+    return m / peak
+
+
 def make_attack(duration=1.5, sample_rate=96_000, carrier_hz=28_000.0, mod_depth=0.9,
                 distance_m=0.5, snr_db=25.0, rt60=0.25, mic_a2=0.12, mic_a3=0.03,
-                seed=0) -> np.ndarray:
+                seed=0, modulator="voiceband") -> np.ndarray:
     """One realistic captured ULTRASONIC-INJECTION recording."""
     rng = np.random.default_rng(seed)
     n = int(duration * sample_rate)
     t = np.arange(n) / sample_rate
 
-    env = _speechlike_envelope(n, sample_rate, rng)
-    # AM modulate the (inaudible) carrier with the speech-like envelope
+    # AM modulate the (inaudible) carrier with the command-like baseband signal
     carrier = np.sin(2 * np.pi * carrier_hz * t)
-    ultrasonic = (1.0 + mod_depth * (env - env.mean())) * carrier
+    ultrasonic = (1.0 + mod_depth * _modulating_signal(modulator, n, sample_rate, rng)) * carrier
 
     # some faint real room audio also present (TV/voices) so it's not pure carrier
     room = 0.05 * _voiceband_content(n, sample_rate, rng)
