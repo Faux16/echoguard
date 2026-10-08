@@ -98,8 +98,18 @@ const store = {
   all() { return this.open().then(db => new Promise((res, rej) => { const r = db.transaction("captures").objectStore("captures").getAll(); r.onsuccess = () => res(r.result.sort((a, b) => b.ts - a.ts)); r.onerror = () => rej(r.error); })); },
   get(id) { return this.open().then(db => new Promise((res, rej) => { const r = db.transaction("captures").objectStore("captures").get(id); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); })); },
 };
-let history = [];                       // in-memory mirror, newest first
-async function loadHistory() { try { history = await store.all(); } catch { history = []; } }
+let history = [], storeErr = null;      // in-memory mirror, newest first
+/* audio is persisted as raw bytes (ArrayBuffer): Safari refuses File objects in IndexedDB */
+const recBlob = r => r.blob || (r.buf ? (r.blob = new Blob([r.buf], { type: "audio/wav" })) : null);
+async function loadHistory() {
+  try { history = await store.all(); history.forEach(recBlob); storeErr = null; }
+  catch (e) { history = []; storeErr = e.message || String(e); }
+}
+async function putRec(rec) {
+  if (!rec.buf && rec.blob) rec.buf = await rec.blob.arrayBuffer();
+  const { blob, ...stored } = rec;                 // never hand a File/Blob to IndexedDB
+  await store.put(stored);
+}
 /* a stored capture keeps the scan result (minus the heavy grids) and the WAV bytes so it can be re-opened and re-gated */
 function recordFrom(d, blob, name, extra = {}) {
   const { spectrogram, psd, waveform, ...light } = d;
@@ -108,7 +118,8 @@ function recordFrom(d, blob, name, extra = {}) {
     sb: d.annotations.carrier_sideband_db, tags: extra.tags || [], note: extra.note || "", source: extra.source || "upload", data: light, blob, bytes: blob ? blob.size : 0 };
 }
 async function saveCapture(rec) {
-  try { await store.put(rec); history = history.filter(r => r.id !== rec.id); history.unshift(rec); } catch (e) { toast("Could not save to history: " + e.message, "bad"); return false; }
+  try { await putRec(rec); history = history.filter(r => r.id !== rec.id); history.unshift(rec); storeErr = null; }
+  catch (e) { storeErr = e.message || String(e); toast("Could not save to history: " + storeErr, "bad", 6000); return false; }
   renderOverview(); return true;
 }
 
@@ -610,7 +621,7 @@ function renderTags() {
 let noteT; $("#noteIn").oninput = () => { state.note = $("#noteIn").value; clearTimeout(noteT); noteT = setTimeout(persistNotes, 500); };
 async function persistNotes() {
   if (!state.id) return; const rec = history.find(r => r.id === state.id); if (!rec) return;
-  rec.tags = [...state.tags]; rec.note = state.note; try { await store.put(rec); } catch { /* ignore */ }
+  rec.tags = [...state.tags]; rec.note = state.note; try { await putRec(rec); } catch { /* ignore */ }
 }
 
 /* ---- export ---- */
@@ -909,7 +920,7 @@ $("#hQ").oninput = () => { hist.q = $("#hQ").value.toLowerCase(); renderHistory(
 $$("#hFilter button").forEach(b => b.onclick = () => { $$("#hFilter button").forEach(x => x.classList.toggle("on", x === b)); hist.filter = b.dataset.f; renderHistory(); });
 sortHeads("#v-history", hist, renderHistory);
 $("#hCsv").onclick = () => history.length && download("echoguard_history.csv", csvOf(history));
-$("#hExport").onclick = () => history.length && download("echoguard_history.json", new Blob([JSON.stringify(history.map(({ blob, ...r }) => r), null, 2)], { type: "application/json" }));
+$("#hExport").onclick = () => history.length && download("echoguard_history.json", new Blob([JSON.stringify(history.map(({ blob, buf, ...r }) => r), null, 2)], { type: "application/json" }));
 $("#hClear").onclick = async () => { if (!history.length || !confirm(`Delete all ${history.length} stored captures from this browser?`)) return; await store.clear(); history = []; renderHistory(); renderOverview(); toast("History cleared", "ok"); };
 function filteredHistory() {
   const f = hist.filter, q = hist.q;
@@ -920,7 +931,9 @@ function renderHistory() {
   const bytes = history.reduce((a, r) => a + (r.bytes || 0), 0);
   const cnt = v => history.filter(r => r.verdict === v).length;
   kpiCards($("#hkpis"), [["Stored", history.length, "var(--text)", `${(bytes / 1048576).toFixed(1)} MB of audio`], ["Clear", cnt("CLEAR"), "var(--ok)"], ["Flagged", cnt("SUSPICIOUS") + cnt("HIGH_RISK"), "var(--bad)", `${cnt("SUSPICIOUS")} suspicious · ${cnt("HIGH_RISK")} high risk`], ["Insufficient data", cnt("INSUFFICIENT_DATA"), "var(--na)", "below 36 kHz"]]);
-  $("#hCount").textContent = `${rows.length} of ${history.length}`; $("#hSub").textContent = `${history.length} capture${history.length === 1 ? "" : "s"} · ${(bytes / 1048576).toFixed(1)} MB · stored locally in this browser`;
+  $("#hCount").textContent = `${rows.length} of ${history.length}`;
+  $("#hSub").innerHTML = storeErr ? `<span style="color:var(--bad)">Browser storage unavailable: ${esc(storeErr)}</span> — captures are scored but cannot be kept. Private windows and some managed browsers block IndexedDB.`
+    : `${history.length} capture${history.length === 1 ? "" : "s"} · ${(bytes / 1048576).toFixed(1)} MB · stored locally in this browser`;
   $("#hEmpty").classList.toggle("hidden", !!rows.length); $("#hTable").classList.toggle("hidden", !rows.length);
   if (!history.length) { $("#hEmpty").innerHTML = `${icon("history")}<b style="margin-top:10px">No captures yet</b>Analyses are saved here automatically (Settings → Data &amp; privacy).`; return; }
   if (!rows.length) { $("#hEmpty").innerHTML = `${icon("search")}<b style="margin-top:10px">Nothing matches</b>Try another search or filter.`; return; }
@@ -933,7 +946,7 @@ function renderHistory() {
 }
 async function openRecord(id) {
   const r = history.find(x => x.id === id) || await store.get(id); if (!r) return toast("Capture not found", "bad");
-  if (!r.blob) return toast("Audio for this capture was not stored", "bad");
+  if (!recBlob(r)) return toast("Audio for this capture was not stored", "bad");
   analyzeBlob(r.blob, r.name, null, { id: r.id, tags: r.tags, note: r.note, source: r.source });
 }
 
@@ -997,7 +1010,7 @@ function renderDryPick() {
   sel.innerHTML = history.length ? history.map(r => `<option value="${r.id}"${r.id === cur ? " selected" : ""}>${esc(r.name)} · ${VERDICT[r.verdict]?.label || r.verdict}</option>`).join("") : `<option value="">no stored captures yet</option>`;
 }
 $("#dryBtn").onclick = async () => {
-  const r = history.find(x => x.id === $("#dryPick").value); if (!r || !r.blob) return toast("Pick a stored capture first", "info");
+  const r = history.find(x => x.id === $("#dryPick").value); if (!r || !recBlob(r)) return toast("Pick a stored capture first", "info");
   $("#dryBtn").disabled = true; $("#dryOut").innerHTML = `<div class="faint" style="margin-top:10px"><span class="spin"></span> gating ${esc(r.name)} three times…</div>`;
   try {
     const res = await Promise.all(SENS.map(s => gateCall(r.blob, r.name, s, polDraft)));
