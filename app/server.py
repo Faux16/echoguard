@@ -15,14 +15,17 @@ Run:
 
 from __future__ import annotations
 
+import base64
 import io
 import os
+import time
 from typing import Optional
 
 import numpy as np
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from scipy import signal as sps
 from scipy.io import wavfile
 
 from echoguard import ConfirmationGate, Pipeline
@@ -67,6 +70,49 @@ def _psd_for_plot(signal: np.ndarray, sr: int) -> dict:
             "psd_db": [round(float(v), 2) for v in psd_db]}
 
 
+def _waveform(signal: np.ndarray, points: int = 900) -> list:
+    """Downsampled peak envelope in [0,1] for the overview strip."""
+    n = len(signal)
+    if n <= points:
+        env = np.abs(signal)
+    else:
+        step = n // points
+        env = np.abs(signal[: step * points]).reshape(points, step).max(axis=1)
+    peak = float(env.max()) or 1.0
+    return [round(float(v / peak), 3) for v in env]
+
+
+def _spectrogram(signal: np.ndarray, sr: int, n_freq: int = 240, n_time: int = 480) -> dict:
+    """STFT magnitude as a base64 uint8 grid (rows high->low freq), for a heatmap.
+
+    Returns the grid plus the dB range and the frequency/time extents so the
+    client can place axes and the 18 kHz line.
+    """
+    nper = 1024 if len(signal) >= 1024 else max(256, len(signal))
+    # boundary=None / padded=False: no zero-padded edge frames (they paint bright vertical bars)
+    f, t, zxx = sps.stft(signal, fs=sr, nperseg=nper, noverlap=nper * 3 // 4,
+                         boundary=None, padded=False)
+    mag = 20.0 * np.log10(np.abs(zxx) + 1e-10)           # (freq, time)
+    # resample to a fixed grid
+    if mag.shape[1] > n_time:
+        cols = np.linspace(0, mag.shape[1] - 1, n_time).astype(int)
+        mag, t = mag[:, cols], t[cols]
+    if mag.shape[0] > n_freq:
+        rows = np.linspace(0, mag.shape[0] - 1, n_freq).astype(int)
+        mag, f = mag[rows, :], f[rows]
+    vmax = float(np.percentile(mag, 99.7))
+    vmin = max(float(np.percentile(mag, 25)), vmax - 70.0)  # floor at the quieter quartile
+    u8 = np.clip((mag - vmin) / (vmax - vmin), 0, 1) * 255.0
+    u8 = np.flipud(u8).astype(np.uint8)                   # row 0 = highest freq
+    return {
+        "shape": [int(u8.shape[0]), int(u8.shape[1])],
+        "data": base64.b64encode(u8.tobytes()).decode("ascii"),
+        "fmax_hz": float(f[-1]),
+        "dur_s": float(t[-1]) if len(t) else 0.0,
+        "vmin_db": round(vmin, 1), "vmax_db": round(vmax, 1),
+    }
+
+
 def _annotations(findings: list, sr: int) -> dict:
     ev = {f.name: f.evidence for f in findings}
     carrier = ev.get("carrier_peak", {}) or {}
@@ -97,6 +143,7 @@ async def api_scan(file: UploadFile = File(...),
                    window: Optional[float] = Form(1.0),
                    hop: float = Form(0.5)) -> JSONResponse:
     signal, sr = _read_upload(file)
+    t0 = time.perf_counter()
     try:
         if window and window > 0:
             w = _pipeline.analyze_windows(signal, sr, window_sec=window, hop_sec=hop)
@@ -105,12 +152,16 @@ async def api_scan(file: UploadFile = File(...),
             report, windows = _pipeline.analyze(signal, sr), []
     except InvalidInput as exc:
         raise HTTPException(400, f"audio cannot be analysed: {exc}") from exc
+    analysis_ms = round((time.perf_counter() - t0) * 1000, 1)
 
     payload = report.to_dict()
     payload["filename"] = file.filename
     payload["annotations"] = _annotations(report.findings, sr)
     payload["psd"] = _psd_for_plot(signal, sr)
+    payload["spectrogram"] = _spectrogram(signal, sr)
+    payload["waveform"] = _waveform(signal)
     payload["capture_note"] = _capture_note(report.verdict, sr)
+    payload["analysis_ms"] = analysis_ms
     payload["windows"] = [
         {"start_sec": round(float(x.start_sec), 3), "verdict": x.verdict,
          "overall_risk": round(float(x.overall_risk), 3)} for x in windows

@@ -50,6 +50,19 @@ def test_scan_attack_high_risk_with_psd_and_annotations():
     assert d["windows"] and all("verdict" in w for w in d["windows"])
 
 
+def test_scan_returns_spectrogram_and_waveform():
+    import base64
+    d = _scan(synth.out_of_band(duration=1.5, sample_rate=SR)).json()
+    sg = d["spectrogram"]
+    f_bins, t_bins = sg["shape"]
+    assert f_bins > 10 and t_bins > 10
+    assert len(base64.b64decode(sg["data"])) == f_bins * t_bins
+    assert sg["fmax_hz"] == pytest.approx(SR / 2, rel=0.01)
+    assert sg["vmax_db"] > sg["vmin_db"]
+    assert d["waveform"] and max(d["waveform"]) == pytest.approx(1.0)
+    assert d["analysis_ms"] >= 0
+
+
 def test_scan_benign_clear():
     d = _scan(synth.benign_speechlike(sample_rate=SR)).json()
     assert d["verdict"] == "CLEAR"
