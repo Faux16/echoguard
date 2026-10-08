@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/console.css?v=5">
+<link rel="stylesheet" href="/static/console.css?v=9">
 <script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
 </head>
 <body>
@@ -90,31 +90,31 @@
             </div>
           </div>
           <div class="card verdict">
-            <div class="v-l"><span class="tag" id="vTag"><span class="d"></span><span id="vTagT">—</span></span><h1 id="vTitle">—</h1><p id="vReason">—</p>
+            <div class="v-l"><div class="tagrow"><span class="tag" id="vTag"><span class="d"></span><span id="vTagT">—</span></span><span class="help-slot" data-help="verdict"></span></div><h1 id="vTitle">—</h1><p id="vReason">—</p>
               <div class="action" id="vAction"><span class="ico-slot" data-ico="info"></span><span id="vActionT">—</span></div></div>
             <div class="v-m"><div class="ring"><svg viewBox="0 0 132 132"><circle cx="66" cy="66" r="54" fill="none" stroke="var(--track)" stroke-width="11" pathLength="100" stroke-dasharray="75 100" stroke-linecap="round"/>
               <circle id="ringArc" cx="66" cy="66" r="54" fill="none" stroke="var(--accent)" stroke-width="11" pathLength="100" stroke-dasharray="0 100" stroke-linecap="round" style="transition:stroke-dasharray .7s var(--ease)"/></svg>
-              <div class="val"><b id="vRisk">—</b><span>risk score</span></div></div></div>
+              <div class="val"><b id="vRisk">—</b><span>risk score <span class="help-slot" data-help="risk score"></span></span></div></div></div>
             <div class="v-r" id="vStats"></div>
           </div>
           <div class="agrid">
-            <div class="card"><div class="card-h"><h3>Spectrogram</h3><span class="sub" id="specSub"></span><div class="right"><span class="readout" id="readout">hover for time · frequency · level</span><div class="seg" id="scaleSeg"><button data-s="lin" class="on">Linear</button><button data-s="log">Log</button></div></div></div>
+            <div class="card"><div class="card-h"><h3>Spectrogram</h3><span class="sub" id="specSub"></span><span class="zoomnote hidden" id="zoomNote"></span><div class="right"><span class="readout" id="readout">hover: time · freq · dB</span><div class="seg" id="scaleSeg"><button data-s="lin" class="on">Linear</button><button data-s="log">Log</button></div></div></div>
               <div class="card-b"><canvas id="ov" class="cv"></canvas><div class="spec-wrap"><canvas id="spec" class="cv"></canvas></div>
                 <div class="speclegend"><i><span class="swl"></span>18 kHz out-of-band edge</i><i><span class="swc"></span>detected carrier</i><i>shaded: band the out-of-band detector measures</i></div></div></div>
             <div class="stack">
-              <div class="card"><div class="card-h"><h3>Detection breakdown</h3><span class="sub">engine thresholds</span></div><div class="card-b" id="breakdown"></div></div>
-              <div class="card"><div class="card-h"><h3>Decision map</h3><span class="sub">where this capture lands</span></div><div class="card-b"><canvas id="dmap" class="cv"></canvas></div></div>
+              <div class="card"><div class="card-h"><h3>Detection breakdown</h3><span class="sub" id="bdSub">engine thresholds · click a meter to learn more</span></div><div class="card-b"><div id="inspectHead"></div><div id="breakdown"></div></div></div>
+              <div class="card"><div class="card-h"><h3>Decision map</h3><span class="sub" id="dmapSub">where this capture lands</span></div><div class="card-b"><canvas id="dmap" class="cv"></canvas></div></div>
             </div>
           </div>
           <div class="bgrid">
-            <div class="card"><div class="card-h"><h3>Power spectrum</h3><span class="sub">Welch estimate</span></div><div class="card-b"><canvas id="psd" class="cv"></canvas></div></div>
-            <div class="card"><div class="card-h"><h3>Window timeline</h3><span class="sub">worst window decides</span></div><div class="card-b"><canvas id="tl" class="cv"></canvas><div class="faint" id="tlNote" style="font-size:12px;margin-top:8px"></div></div></div>
+            <div class="card"><div class="card-h"><h3>Power spectrum</h3><span class="sub" id="psdSub">Welch estimate · hover for level</span></div><div class="card-b"><canvas id="psd" class="cv"></canvas></div></div>
+            <div class="card"><div class="card-h"><h3>Window timeline</h3><span class="sub">worst window decides · click a bar</span></div><div class="card-b"><canvas id="tl" class="cv" style="cursor:pointer"></canvas><div class="faint" id="tlNote" style="font-size:12px;margin-top:8px"></div><div id="winSel"></div></div></div>
             <div class="card"><div class="card-h"><h3>Agent confirmation gate</h3><span class="sub" id="gatePolicyName"></span></div><div class="card-b">
               <div class="gopts"><div class="gopt" data-a="routine"><b>Routine</b><span>weather, timers</span></div><div class="gopt on" data-a="sensitive"><b>Sensitive</b><span>messages, settings</span></div><div class="gopt" data-a="critical"><b>Critical</b><span>unlock, payments</span></div></div>
               <button class="btn" id="gateBtn" style="width:100%;justify-content:center">Evaluate action</button><div id="gateOut"></div></div></div>
           </div>
           <div class="card notes" style="padding:var(--card-pad);flex-direction:column;gap:10px">
-            <div class="row" style="justify-content:space-between"><h3 style="margin:0;font-size:13.5px">Notes &amp; tags</h3><span class="faint" style="font-size:12px">saved with this capture in History</span></div>
+            <div class="card-h" style="padding:0"><h3>Notes &amp; tags</h3><span class="sub">saved with this capture in History</span></div>
             <div class="tagsin" id="tagsIn"></div>
             <textarea class="inp" id="noteIn" rows="2" placeholder="Add a note — device, room, what you were testing…"></textarea>
           </div>
@@ -194,7 +194,7 @@
       <section class="view" id="v-coverage">
         <div class="pagehead"><div><h1>Coverage &amp; limits</h1><div class="sub">What a stored recording keeps — and what this screen can and cannot see</div></div></div>
         <div class="cgrid">
-          <div class="card"><div class="card-h"><h3>Detection through a device capture chain</h3><span class="sub">simulated attacks, 12 per condition</span></div><div class="card-b"><canvas id="cbar" class="cv"></canvas><p class="faint" style="font-size:12.5px;margin:12px 0 0">A phone's converter low-passes before storing audio, so the ultrasonic carrier is usually gone from the file. All 2,934 real DolphinAttack captures are 16 kHz and return “insufficient data”.</p></div></div>
+          <div class="card"><div class="card-h"><h3>Detection through a device capture chain</h3><span class="sub">simulated attacks, 12 per condition</span></div><div class="card-b"><canvas id="cbar" class="cv" style="cursor:pointer"></canvas><div id="cbarNote"></div><p class="faint" style="font-size:12.5px;margin:12px 0 0">A phone's converter low-passes before storing audio, so the ultrasonic carrier is usually gone from the file. All 2,934 real DolphinAttack captures are 16 kHz and return “insufficient data”.</p></div></div>
           <div class="card"><div class="card-h"><h3>Default agent gate policy</h3><div class="right"><button class="btn sm ghost" data-go="policies">Edit</button></div></div><div class="card-b tablewrap" id="covPolicy"></div></div>
         </div>
         <div class="card" style="margin-top:var(--gap)"><div class="card-h"><h3>Attack classes</h3><span class="sub">see docs/threat_model.md</span></div><div class="card-b"><div class="classes" id="classes"></div></div></div>
@@ -244,6 +244,7 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
 <div class="toasts" id="toasts"></div>
 <div id="paletteMount"></div>
 <input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
-<script src="/static/console.js?v=6"></script>
+<script src="/static/help.js?v=9"></script>
+<script src="/static/console.js?v=9"></script>
 </body>
 </html>

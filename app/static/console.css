@@ -6,8 +6,8 @@
   --font:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --r-xl:18px; --r-lg:14px; --r:10px; --r-sm:7px;
-  --rail:240px; --rail-min:64px; --bar:56px;
-  --pad:24px; --gap:18px; --card-pad:18px;
+  --rail:244px; --rail-min:64px; --bar:58px;
+  --pad:28px; --gap:20px; --card-pad:20px;
   --ease:cubic-bezier(.2,.8,.2,1);
   --ok:#22c38a; --warn:#e9a200; --bad:#ef4b5a; --na:#7d8aa3; --accent:#2f8dff; --accent-2:#7c6cff;
   --ok-soft:rgba(34,195,138,.13); --warn-soft:rgba(233,162,0,.14); --bad-soft:rgba(239,75,90,.13); --na-soft:rgba(125,138,163,.14); --accent-soft:rgba(47,141,255,.13);
@@ -39,7 +39,11 @@
 
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%}
-body{font:14px/1.5 var(--font);color:var(--text);background:var(--bgfx),var(--bg);background-attachment:fixed;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1,"cv11" 1}
+body{font:13.5px/1.55 var(--font);color:var(--text);background:var(--bgfx),var(--bg);background-attachment:fixed;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-feature-settings:"tnum" 1,"cv11" 1,"ss01" 1,"calt" 1;letter-spacing:-.005em;text-rendering:optimizeLegibility}
+h1,h2,h3,h4{letter-spacing:-.015em;font-weight:600}
+.num,.rbar,td.n,.kv b,.stat .v,.kpi .v,.ring .val b{font-variant-numeric:tabular-nums}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-3)}
+p{margin:0}
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:var(--accent)} .mono{font-family:var(--mono)}
 .hidden{display:none!important} .muted{color:var(--text-2)} .faint{color:var(--text-3)}
@@ -99,8 +103,8 @@ main{flex:1;padding:var(--pad);min-width:0;display:flex;flex-direction:column}
 .how .step i{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-style:normal;font-weight:700;font-size:12.5px;margin-bottom:10px}
 .how .step b{display:block;font-size:13.5px;margin-bottom:3px} .how .step span{font-size:12.5px;color:var(--text-3);line-height:1.45}
 .pagehead{display:flex;align-items:flex-start;gap:14px;margin-bottom:var(--gap);flex-wrap:wrap}
-.pagehead h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.3px;line-height:1.2}
-.pagehead .sub{color:var(--text-3);font-size:13px;margin-top:3px}
+.pagehead h1{margin:0;font-size:22px;font-weight:650;letter-spacing:-.02em;line-height:1.2;display:inline-flex;align-items:center;gap:8px}
+.pagehead .sub{color:var(--text-3);font-size:13px;margin-top:4px;max-width:720px;line-height:1.5}
 .pagehead .acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .metas{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;font-size:12.5px;color:var(--text-3)} .metas b{color:var(--text-2);font-weight:500} .metas .m+.m::before{content:"·";margin:0 7px 0 1px;color:var(--text-4)}
 
@@ -124,10 +128,20 @@ main{flex:1;padding:var(--pad);min-width:0;display:flex;flex-direction:column}
 .seg button .ico{width:14px;height:14px}
 .seg button.on{background:var(--surface);color:var(--text);box-shadow:0 0 0 1px var(--border-2),0 1px 2px rgba(0,0,0,.15)}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow);min-width:0}
-.card-h{display:flex;align-items:center;gap:12px;padding:15px var(--card-pad) 0}
-.card-h h3{margin:0;font-size:13.5px;font-weight:600;white-space:nowrap}
-.card-h .sub{font-size:12px;color:var(--text-3)} .card-h .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.card-h{display:flex;align-items:center;gap:10px;padding:16px var(--card-pad) 0;min-height:22px}
+.card-h h3{margin:0;font-size:13.5px;font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.card-h .sub{font-size:12px;color:var(--text-3);letter-spacing:0} .card-h .right{margin-left:auto;display:flex;align-items:center;gap:8px}
 .card-b{padding:14px var(--card-pad) var(--card-pad)}
+/* help: an ⓘ beside any heading, opening a popover that says what the section is and how to read it */
+.help{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;border:1px solid var(--border-2);background:transparent;color:var(--text-3);cursor:help;font:600 10.5px/1 var(--font);padding:0;flex:none;transition:.14s;vertical-align:middle}
+.help:hover,.help.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.pop{position:fixed;z-index:70;width:min(360px,calc(100vw - 24px));padding:14px 16px 15px;border-radius:12px;background:var(--surface);border:1px solid var(--border-2);box-shadow:0 24px 60px -24px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.04);font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.pop b.t{display:block;color:var(--text);font-size:13px;margin-bottom:5px} .pop .r{margin-top:9px;padding-top:9px;border-top:1px solid var(--hair)} .pop .r em{font-style:normal;color:var(--text);font-weight:600}
+.pop .kv{padding:5px 0;font-size:12px} .pop code{font-family:var(--mono);font-size:11.5px;color:var(--text)}
+.pop .arrow{position:absolute;width:10px;height:10px;background:var(--surface);border-left:1px solid var(--border-2);border-top:1px solid var(--border-2);transform:rotate(45deg);top:-6px;left:18px}
+.pop.below .arrow{top:auto;bottom:-6px;transform:rotate(225deg)}
+.clickable{cursor:pointer}
+.meter.clickable:hover .track{box-shadow:0 0 0 3px var(--accent-soft)}
 .tag{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:7px;font-size:12px;font-weight:600;white-space:nowrap}
 .tag .d{width:7px;height:7px;border-radius:50%;background:currentColor}
 .tag.sm{height:20px;font-size:11px;padding:0 7px}
@@ -193,8 +207,9 @@ tbody tr.click{cursor:pointer} tbody tr.click:hover{background:var(--hover)}
 /* ---------------------------------------------------------------- overview */
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--gap);margin-bottom:var(--gap)}
 .kpi{padding:16px 18px;border:1px solid var(--border);border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--shadow);position:relative;overflow:hidden}
-.kpi .k{font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:8px} .kpi .k .ico{width:15px;height:15px;color:var(--text-4)}
-.kpi .v{font-size:28px;font-weight:700;letter-spacing:-.6px;margin-top:6px;line-height:1.1}
+.kpi .k{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);display:flex;align-items:center;gap:6px} .kpi .k .ico{width:15px;height:15px;color:var(--text-4)}
+.kpi .v{font-size:28px;font-weight:650;letter-spacing:-.03em;margin-top:8px;line-height:1.1}
+.kpi.clickable{transition:.14s} .kpi.clickable:hover{border-color:var(--accent);transform:translateY(-1px)}
 .kpi .v small{font-size:13px;font-weight:500;color:var(--text-3);margin-left:4px;letter-spacing:0}
 .kpi .h{font-size:12px;color:var(--text-3);margin-top:6px}
 .kpi canvas{position:absolute;right:12px;bottom:10px;width:92px;height:34px;opacity:.9}
@@ -221,8 +236,9 @@ tbody tr.click{cursor:pointer} tbody tr.click:hover{background:var(--hover)}
 .sample canvas{width:140px;height:72px;border-radius:7px;background:var(--plot)} .sample h4{margin:0 0 3px;font-size:13.5px} .sample p{margin:0 0 7px;font-size:12px;color:var(--text-3)}
 .verdict{display:grid;grid-template-columns:minmax(0,1fr) 180px minmax(0,1.05fr);margin-bottom:var(--gap);overflow:hidden}
 .verdict .v-l{padding:22px 24px;border-right:1px solid var(--hair)}
-.verdict .v-l h1{margin:10px 0 8px;font-size:25px;line-height:1.2;letter-spacing:-.3px;font-weight:700}
-.verdict .v-l p{margin:0;color:var(--text-2);font-size:14px}
+.verdict .v-l h1{margin:12px 0 8px;font-size:24px;line-height:1.2;letter-spacing:-.02em;font-weight:650}
+.verdict .v-l p{margin:0;color:var(--text-2);font-size:13.5px;line-height:1.6;max-width:62ch}
+.verdict .v-l .tagrow{display:flex;align-items:center;gap:8px}
 .verdict .action{display:flex;gap:10px;align-items:flex-start;margin-top:14px;padding:10px 12px;border-radius:10px;background:var(--sunk);border:1px solid var(--border);font-size:13px;color:var(--text)}
 .verdict .action .ico{margin-top:1px}
 .verdict .v-m{display:grid;place-items:center;padding:18px;border-right:1px solid var(--hair)}
@@ -230,17 +246,25 @@ tbody tr.click{cursor:pointer} tbody tr.click:hover{background:var(--hover)}
 .ring .val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center} .ring .val b{font-size:34px;font-weight:700;letter-spacing:-.5px;line-height:1} .ring .val span{font-size:11.5px;color:var(--text-3);margin-top:4px}
 .verdict .v-r{display:grid;grid-template-columns:repeat(3,1fr)}
 .stat{padding:22px 18px;border-left:1px solid var(--hair)} .stat:first-child{border-left:0}
-.stat .k{font-size:12px;color:var(--text-3)} .stat .v{font-size:23px;font-weight:700;letter-spacing:-.3px;margin-top:6px} .stat .v small{font-size:13px;font-weight:500;color:var(--text-3);margin-left:3px} .stat .h{font-size:12px;color:var(--text-3);margin-top:4px}
+.stat .k{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);display:flex;align-items:center;gap:6px} .stat .v{font-size:23px;font-weight:650;letter-spacing:-.02em;margin-top:8px} .stat .v small{font-size:13px;font-weight:500;color:var(--text-3);margin-left:3px} .stat .h{font-size:12px;color:var(--text-3);margin-top:4px}
 .agrid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:var(--gap);align-items:stretch}
 .agrid>.card:first-child{display:flex;flex-direction:column} .agrid>.card:first-child>.card-b{flex:1;display:flex;flex-direction:column}
 .spec-wrap{position:relative;flex:1;min-height:420px} .spec-wrap canvas{position:absolute;inset:0;height:100%;cursor:crosshair}
-#ov{height:56px;margin-bottom:8px}
-.readout{font-family:var(--mono);font-size:12px;color:var(--text-2);min-width:240px;text-align:right}
+#ov{height:56px;margin-bottom:8px;cursor:col-resize}
+.spec-wrap canvas#spec{cursor:crosshair}
+.zoomnote{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--text-3)} .zoomnote a{cursor:pointer}
+.winsel{margin-top:10px;padding:12px 14px;border-radius:10px;background:var(--sunk);border:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12.5px}
+.winsel b{font-weight:600} .winsel .spacer{flex:1}
+.inspect-h{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:10px;border-radius:10px;background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);font-size:12.5px}
+.inspect-h b{color:var(--text)} .inspect-h a{margin-left:auto;cursor:pointer;white-space:nowrap}
+.readout{font-family:var(--mono);font-size:11.5px;color:var(--text-2);min-width:150px;text-align:right;white-space:nowrap}
+.inspect-h span.m{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .speclegend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--text-3)} .speclegend i{display:flex;align-items:center;gap:7px;font-style:normal}
 .swl{width:18px;height:0;border-top:2px dashed var(--bad)} .swc{width:18px;height:2px;background:var(--warn)}
 .det{padding:14px 0;border-top:1px solid var(--hair)} .det:first-child{border-top:0;padding-top:4px}
 .det-h{display:flex;align-items:center;gap:10px} .det-h h4{margin:0;font-size:13.5px;font-weight:600} .det-h .rho{margin-left:auto;font-size:12px;color:var(--text-3)} .det-h .rho b{color:var(--text);font-size:14px}
-.det p{margin:6px 0 10px;font-size:12.5px;color:var(--text-3);line-height:1.45}
+.det p{margin:6px 0 10px;font-size:12.5px;color:var(--text-3);line-height:1.55}
+.det-h h4{display:inline-flex;align-items:center;gap:6px}
 .meter{position:relative;margin:4px 0 20px} .meter .lab{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px} .meter .lab span{color:var(--text-3)} .meter .lab b{font-weight:600}
 .track{position:relative;height:8px;border-radius:5px;background:var(--track)} .track .zone{position:absolute;top:0;bottom:0;border-radius:5px}
 .track .fill{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--accent);opacity:.55}
