@@ -6,8 +6,8 @@
 <title>EchoGuard Console</title>
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/console.css?v=11">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/console.css?v=12">
 <script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
 </head>
 <body>
@@ -113,10 +113,12 @@
               <div class="gopts"><div class="gopt" data-a="routine"><b>Routine</b><span>weather, timers</span></div><div class="gopt on" data-a="sensitive"><b>Sensitive</b><span>messages, settings</span></div><div class="gopt" data-a="critical"><b>Critical</b><span>unlock, payments</span></div></div>
               <button class="btn" id="gateBtn" style="width:100%;justify-content:center">Evaluate action</button><div id="gateOut"></div></div></div>
           </div>
-          <div class="card notes" style="padding:var(--card-pad);flex-direction:column;gap:10px">
-            <div class="card-h" style="padding:0"><h3>Notes &amp; tags</h3><span class="sub">saved with this capture in History</span></div>
-            <div class="tagsin" id="tagsIn"></div>
-            <textarea class="inp" id="noteIn" rows="2" placeholder="Add a note — device, room, what you were testing…"></textarea>
+          <div class="card notes">
+            <div class="card-h"><h3>Notes &amp; tags</h3><span class="sub">saved with this capture in History</span><div class="right"><span class="sub" id="noteState"></span></div></div>
+            <div class="card-b">
+              <div class="field"><label for="tagNew">Tags</label><div class="tagsin" id="tagsIn"></div><span class="hint">Enter or comma adds a tag · searchable from History</span></div>
+              <div class="field"><label for="noteIn">Note</label><textarea class="inp" id="noteIn" placeholder="Device, room, distance, what you were testing…"></textarea></div>
+            </div>
           </div>
         </div>
         <div class="err" id="aErr"></div>
@@ -244,7 +246,7 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
 <div class="toasts" id="toasts"></div>
 <div id="paletteMount"></div>
 <input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
-<script src="/static/help.js?v=11"></script>
-<script src="/static/console.js?v=11"></script>
+<script src="/static/help.js?v=12"></script>
+<script src="/static/console.js?v=12"></script>
 </body>
 </html>

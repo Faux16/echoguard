@@ -355,7 +355,7 @@ function paintGrid(ctx, grid, F, T, x0, y0, pw, ph, fmax, scale) {
   ctx.drawImage(off, x0, y0, pw, ph);
 }
 function pill(ctx, text, x, y, color, align = "right") {
-  ctx.font = "600 11px Inter"; const w = ctx.measureText(text).width + 14, h = 19;
+  ctx.font = "600 11px Helvetica"; const w = ctx.measureText(text).width + 14, h = 19;
   const bx = align === "right" ? x - w : x;
   ctx.fillStyle = "rgba(6,10,18,.82)"; roundRect(ctx, bx, y - h / 2, w, h, 6); ctx.fill();
   ctx.strokeStyle = color; ctx.lineWidth = 1; roundRect(ctx, bx + .5, y - h / 2 + .5, w - 1, h - 1, 6); ctx.stroke();
@@ -522,7 +522,7 @@ function drawSpectrogram(d) {
   if (state.zoom) { zn.innerHTML = `zoomed ${t0.toFixed(2)}–${t1.toFixed(2)} s · <a id="zoomReset">reset</a>`; $("#zoomReset").onclick = () => { state.zoom = null; drawSpectrogram(d); drawOverview(d); }; }
   const yOf = f => y0 + fracOf(f, fmax, sc) * ph, a = d.annotations, edge = d.thresholds.oob_edge_hz;
   if (edge < fmax) { ctx.fillStyle = "rgba(248,113,113,.07)"; ctx.fillRect(x0, y0, pw, yOf(edge) - y0); }
-  ctx.font = "11px Inter"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  ctx.font = "11px Helvetica"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
   freqTicks(fmax, sc).forEach(f => { const y = yOf(f); if (y < y0 - 1 || y > y0 + ph + 1) return;
     ctx.strokeStyle = "rgba(255,255,255,.07)"; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + pw, y); ctx.stroke(); ctx.fillStyle = ax; ctx.fillText(kHz(f), x0 - 8, y); });
   ctx.save(); ctx.translate(12, y0 + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillStyle = TXT3(); ctx.fillText("frequency (Hz)", 0, 0); ctx.restore();
@@ -540,7 +540,7 @@ function drawSpectrogram(d) {
   const cbx = W - R + 16, cbw = 11, g = ctx.createLinearGradient(0, y0 + ph, 0, y0);
   for (let i = 0; i <= 10; i++) { const v = Math.round(i * 25.5); g.addColorStop(i / 10, `rgb(${LUT[v * 3]},${LUT[v * 3 + 1]},${LUT[v * 3 + 2]})`); }
   ctx.fillStyle = g; roundRect(ctx, cbx, y0, cbw, ph, 4); ctx.fill();
-  ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = ax; ctx.font = "10.5px Inter";
+  ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = ax; ctx.font = "10.5px Helvetica";
   [[0, sp.vmax_db], [.5, (sp.vmax_db + sp.vmin_db) / 2], [1, sp.vmin_db]].forEach(([fr, db]) => ctx.fillText(db.toFixed(0), cbx + cbw + 6, y0 + fr * ph));
   ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText("dB", cbx + cbw / 2 + 6, y0 + ph + 8);
   state.geom = { x0, y0, pw, ph, F, T, fmax, sc, dur, c0, Tz, t0, t1 };
@@ -596,7 +596,7 @@ function drawOverview(d) {
   for (let i = 0; i < n; i++) ctx.lineTo(L + i / (n - 1) * pw, mid - env[i] * (H * .44));
   for (let i = n - 1; i >= 0; i--) ctx.lineTo(L + i / (n - 1) * pw, mid + env[i] * (H * .44));
   ctx.closePath(); ctx.fill();
-  ctx.fillStyle = TXT3(); ctx.font = "10.5px Inter"; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText("level", L - 8, mid);
+  ctx.fillStyle = TXT3(); ctx.font = "10.5px Helvetica"; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText("level", L - 8, mid);
   const dur = d.duration_sec, w = d.windows;
   if (w && w.length > 1) { const sel = state.win != null ? w[state.win] : worstWindow(w), x = L + sel.start_sec / dur * pw, ww = Math.min(winLen(), dur) / dur * pw;
     ctx.strokeStyle = VERDICT[sel.verdict].hex; ctx.lineWidth = 1.5; roundRect(ctx, x + .75, 1, ww - 1.5, H - 2, 6); ctx.stroke(); ctx.lineWidth = 1; }
@@ -609,7 +609,7 @@ function drawPSD(d) {
   ctx.clearRect(0, 0, W, H); if (!fs.length) return;
   let lo = Math.min(...db), hi = Math.max(...db); lo = Math.floor(lo / 10) * 10; hi = Math.ceil(hi / 10) * 10;
   const X = f => L + f / fmax * (W - L - R), Y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B), edge = d.thresholds.oob_edge_hz;
-  ctx.font = "10.5px Inter"; ctx.fillStyle = ax;
+  ctx.font = "10.5px Helvetica"; ctx.fillStyle = ax;
   const ys = niceStep(hi - lo, 4); ctx.textAlign = "right"; ctx.textBaseline = "middle";
   for (let v = lo; v <= hi; v += ys) { ctx.strokeStyle = gr; ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(W - R, Y(v)); ctx.stroke(); ctx.fillText(v, L - 6, Y(v)); }
   ctx.textAlign = "center"; ctx.textBaseline = "top"; freqTicks(fmax, "lin").forEach(f => ctx.fillText(kHz(f), X(f), H - B + 7));
@@ -634,7 +634,7 @@ function drawTimeline(d) {
   ctx.clearRect(0, 0, W, H);
   const w = d.windows.length ? d.windows : [{ start_sec: 0, verdict: d.verdict, overall_risk: d.overall_risk }];
   const dur = Math.max(d.duration_sec, 1e-3), Y = v => T + (1 - v) * (H - T - B), X = s => L + s / dur * (W - L - R);
-  ctx.font = "10.5px Inter"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  ctx.font = "10.5px Helvetica"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
   [[0, "0"], [t.suspicious_risk, ".33"], [t.high_risk, ".66"], [1, "1"]].forEach(([v, l]) => { ctx.strokeStyle = v === 0 || v === 1 ? gr : ax; ctx.setLineDash(v === 0 || v === 1 ? [] : [3, 4]); ctx.globalAlpha = v === 0 || v === 1 ? 1 : .35;
     ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(W - R, Y(v)); ctx.stroke(); ctx.globalAlpha = 1; ctx.fillStyle = ax; ctx.fillText(l, L - 6, Y(v)); });
   ctx.setLineDash([]);
@@ -711,15 +711,15 @@ function drawDecisionMap(d) {
   [[t.suspicious_risk, "#fbbf24"], [t.high_risk, "#f87171"]].forEach(([Rv, col]) => {
     ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.beginPath(); let first = true;
     for (let k = 0; k <= 200; k++) { const x = Rv * Rv + (1 - Rv * Rv) * k / 200, y = Rv * Rv / x; if (first) { ctx.moveTo(X(x), Y(y)); first = false; } else ctx.lineTo(X(x), Y(y)); }
-    ctx.stroke(); ctx.fillStyle = col; ctx.font = "600 10.5px Inter"; ctx.textAlign = "left"; ctx.fillText("R=" + Rv, X(1) - 34, Y(Rv * Rv) - 6); });
+    ctx.stroke(); ctx.fillStyle = col; ctx.font = "600 10.5px Helvetica"; ctx.textAlign = "left"; ctx.fillText("R=" + Rv, X(1) - 34, Y(Rv * Rv) - 6); });
   ctx.lineWidth = 1; ctx.strokeStyle = GRID(); ctx.strokeRect(L + .5, T + .5, pw - 1, ph - 1);
-  ctx.fillStyle = ax; ctx.font = "10.5px Inter"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+  ctx.fillStyle = ax; ctx.font = "10.5px Helvetica"; ctx.textAlign = "center"; ctx.textBaseline = "top";
   [0, .5, 1].forEach(v => ctx.fillText(v, X(v), T + ph + 6)); ctx.fillText("ρA  out-of-band energy", L + pw / 2, T + ph + 19);
   ctx.textAlign = "right"; ctx.textBaseline = "middle"; [0, .5, 1].forEach(v => ctx.fillText(v, L - 6, Y(v)));
   ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText("ρB  carrier", 0, 0); ctx.restore();
   const oob = ev(d, "out_of_band_energy"), car = ev(d, "carrier_peak");
   state.dmapGeom = { L, T, pw, ph };
-  if (!oob || !oob.assessable) { ctx.fillStyle = effectiveTheme() === "dark" ? "rgba(6,10,18,.7)" : "rgba(243,245,249,.75)"; ctx.fillRect(L, T, pw, ph); ctx.fillStyle = TXT(); ctx.font = "12.5px Inter";
+  if (!oob || !oob.assessable) { ctx.fillStyle = effectiveTheme() === "dark" ? "rgba(6,10,18,.7)" : "rgba(243,245,249,.75)"; ctx.fillRect(L, T, pw, ph); ctx.fillStyle = TXT(); ctx.font = "12.5px Helvetica";
     ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("Not assessable at this sample rate", L + pw / 2, T + ph / 2); return; }
   const px = X(oob.risk), py = Y(car ? car.risk : 0), col = VERDICT[d.verdict].hex;
   const rg = ctx.createRadialGradient(px, py, 0, px, py, 22); rg.addColorStop(0, col + "aa"); rg.addColorStop(1, col + "00");
@@ -752,14 +752,18 @@ $("#gateBtn").onclick = async () => {
 
 /* ---- notes & tags (persisted with the capture) ---- */
 function renderTags() {
-  $("#tagsIn").innerHTML = state.tags.map((t, i) => `<span class="chip">${icon("tag")}${esc(t)}<span class="x" data-i="${i}">${icon("x")}</span></span>`).join("") + `<input id="tagNew" placeholder="+ tag">`;
+  $("#tagsIn").innerHTML = state.tags.map((t, i) => `<span class="chip">${esc(t)}<span class="x" data-i="${i}">${icon("x")}</span></span>`).join("") + `<input id="tagNew" placeholder="${state.tags.length ? "Add another…" : "Add a tag…"}">`;
+  $("#tagsIn").onclick = e => { if (!e.target.closest(".x")) $("#tagNew").focus(); };
   $$("#tagsIn .x").forEach(x => x.onclick = () => { state.tags.splice(+x.dataset.i, 1); renderTags(); persistNotes(); });
   const inp = $("#tagNew"); inp.onkeydown = e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); const v = inp.value.trim().replace(/,$/, ""); if (v && !state.tags.includes(v)) state.tags.push(v); renderTags(); persistNotes(); $("#tagNew").focus(); } };
 }
 let noteT; $("#noteIn").oninput = () => { state.note = $("#noteIn").value; clearTimeout(noteT); noteT = setTimeout(persistNotes, 500); };
 async function persistNotes() {
-  if (!state.id) return; const rec = history.find(r => r.id === state.id); if (!rec) return;
-  rec.tags = [...state.tags]; rec.note = state.note; try { await putRec(rec); } catch { /* ignore */ }
+  const st = $("#noteState");
+  if (!state.id) { st.textContent = "save the capture to keep notes"; return; }
+  const rec = history.find(r => r.id === state.id); if (!rec) return;
+  rec.tags = [...state.tags]; rec.note = state.note;
+  try { await putRec(rec); st.textContent = "saved"; setTimeout(() => { if (st.textContent === "saved") st.textContent = ""; }, 1800); } catch { st.textContent = "could not save"; }
 }
 
 /* ---- export ---- */
@@ -989,19 +993,19 @@ function drawWaterfall() {
   ctx.clearRect(0, 0, W, H); ctx.fillStyle = PLOT(); ctx.fillRect(L, T, pw, ph);
   if (live.wf) { ctx.imageSmoothingEnabled = true; ctx.drawImage(live.wf, L, T, pw, ph); }
   const fmax = live.fmax, yOf = f => T + (1 - f / fmax) * ph;
-  ctx.font = "10.5px Inter"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  ctx.font = "10.5px Helvetica"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
   freqTicks(fmax, "lin").forEach(f => { const y = yOf(f); ctx.strokeStyle = "rgba(255,255,255,.07)"; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.stroke(); ctx.fillStyle = ax; ctx.fillText(kHz(f), L - 7, y); });
   if (fmax > 18000) { const y = yOf(18000); ctx.strokeStyle = "#f87171"; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.stroke(); ctx.setLineDash([]); }
   if (live.sel != null) { const k = live.hist.findIndex(h => h.id === live.sel); if (k >= 0) { const bw = pw / 60, j = 60 - live.hist.length + k;
     ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.strokeRect(L + j * bw + .75, T + .75, bw - 1.5, ph - 1.5); ctx.lineWidth = 1; } }
   ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = ax;
   [60, 45, 30, 15, 0].forEach(s => ctx.fillText(s ? `−${s} s` : "now", L + (1 - s / 60) * pw, T + ph + 6));
-  if (!live.hist.length) { ctx.fillStyle = "rgba(169,180,200,.6)"; ctx.font = "13px Inter"; ctx.textBaseline = "middle"; ctx.fillText("Waiting for audio", L + pw / 2, T + ph / 2); }
+  if (!live.hist.length) { ctx.fillStyle = "rgba(169,180,200,.6)"; ctx.font = "13px Helvetica"; ctx.textBaseline = "middle"; ctx.fillText("Waiting for audio", L + pw / 2, T + ph / 2); }
 }
 function drawStrip() {
   const c = $("#ls"); if (!c.offsetParent) return; const { ctx, W, H } = fit(c), L = 46, R = 8, T = 6, B = 6, pw = W - L - R, ph = H - T - B, ax = AX(), gr = GRID();
   ctx.clearRect(0, 0, W, H); const Y = v => T + (1 - v) * ph;
-  ctx.font = "10.5px Inter"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  ctx.font = "10.5px Helvetica"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
   [[0, "0"], [.33, ".33"], [.66, ".66"], [1, "1"]].forEach(([v, l]) => { ctx.strokeStyle = v % 1 ? ax : gr; ctx.globalAlpha = v % 1 ? .35 : 1; ctx.setLineDash(v % 1 ? [3, 4] : []);
     ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(L + pw, Y(v)); ctx.stroke(); ctx.globalAlpha = 1; ctx.fillStyle = ax; ctx.fillText(l, L - 7, Y(v)); });
   ctx.setLineDash([]); const bw = pw / 60; live.hits = [];
@@ -1217,13 +1221,13 @@ const COV_NOTES = [
 function barChart(c, data, { T = 22, B = 40, L = 36, R = 10, labels = true } = {}) {
   if (!c.offsetParent) return; const { ctx, W, H } = fit(c), pw = W - L - R, ph = H - T - B, ax = AX(), gr = GRID();
   c._hits = data.map((_, i) => ({ x0: L + i * (pw / data.length), x1: L + (i + 1) * (pw / data.length), i }));
-  ctx.clearRect(0, 0, W, H); ctx.font = "10.5px Inter"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  ctx.clearRect(0, 0, W, H); ctx.font = "10.5px Helvetica"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
   [0, 50, 100].forEach(v => { const y = T + (1 - v / 100) * ph; ctx.strokeStyle = gr; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.fillStyle = ax; ctx.fillText(v + "%", L - 6, y); });
   const bw = pw / data.length;
   data.forEach(([l, v, col], i) => { const x = L + i * bw + bw * .2, w = bw * .6, h = Math.max(2, ph * v / 100), y = T + ph - h;
     const g = ctx.createLinearGradient(0, y, 0, T + ph); g.addColorStop(0, col); g.addColorStop(1, col + "44"); ctx.fillStyle = g; roundRect(ctx, x, y, w, h, 5); ctx.fill();
-    ctx.fillStyle = TXT(); ctx.font = "600 12px Inter"; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(v ? v + "%" : "no verdict", x + w / 2, y - 5);
-    if (labels) { ctx.fillStyle = ax; ctx.font = "10.5px Inter"; ctx.textBaseline = "top"; ctx.fillText(l, x + w / 2, T + ph + 9); } });
+    ctx.fillStyle = TXT(); ctx.font = "600 12px Helvetica"; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(v ? v + "%" : "no verdict", x + w / 2, y - 5);
+    if (labels) { ctx.fillStyle = ax; ctx.font = "10.5px Helvetica"; ctx.textBaseline = "top"; ctx.fillText(l, x + w / 2, T + ph + 9); } });
 }
 function drawCoverage() { barChart($("#cbar"), COV); }
 $("#cbar").addEventListener("click", e => {
@@ -1260,10 +1264,10 @@ const fmtUptime = s => s < 60 ? Math.round(s) + " s" : s < 3600 ? Math.round(s /
 function drawTrend() {
   const c = $("#ovTrend"); if (!c.offsetParent) return; const { ctx, W, H } = fit(c), L = 28, R = 8, T = 8, B = 8, pw = W - L - R, ph = H - T - B, ax = AX(), gr = GRID();
   ctx.clearRect(0, 0, W, H); const Y = v => T + (1 - v) * ph;
-  ctx.font = "10.5px Inter"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  ctx.font = "10.5px Helvetica"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
   [[0, "0"], [.33, ".33"], [.66, ".66"], [1, "1"]].forEach(([v, l]) => { ctx.strokeStyle = v % 1 ? ax : gr; ctx.globalAlpha = v % 1 ? .35 : 1; ctx.setLineDash(v % 1 ? [3, 4] : []); ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(L + pw, Y(v)); ctx.stroke(); ctx.globalAlpha = 1; ctx.fillStyle = ax; ctx.fillText(l, L - 6, Y(v)); });
   ctx.setLineDash([]);
-  const rows = history.slice(0, 40).reverse(); if (!rows.length) { ctx.fillStyle = TXT3(); ctx.textAlign = "center"; ctx.font = "12.5px Inter"; ctx.fillText("No captures yet", L + pw / 2, T + ph / 2); return; }
+  const rows = history.slice(0, 40).reverse(); if (!rows.length) { ctx.fillStyle = TXT3(); ctx.textAlign = "center"; ctx.font = "12.5px Helvetica"; ctx.fillText("No captures yet", L + pw / 2, T + ph / 2); return; }
   const bw = pw / 40; state.trendHits = [];
   rows.forEach((r, i) => { const j = 40 - rows.length + i, h = r.verdict === "INSUFFICIENT_DATA" ? .08 : Math.max(.03, r.risk); ctx.fillStyle = VERDICT[r.verdict]?.hex || "#888"; ctx.globalAlpha = .85; roundRect(ctx, L + j * bw + 1.5, Y(h), Math.max(2, bw - 3), Y(0) - Y(h), 2); ctx.fill(); ctx.globalAlpha = 1;
     state.trendHits.push({ x0: L + j * bw, x1: L + (j + 1) * bw, id: r.id, name: r.name }); });
