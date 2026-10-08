@@ -13,17 +13,29 @@ uvicorn app.server:app --reload       # http://127.0.0.1:8000
 ```
 
 Files: `server.py` (FastAPI), `static/index.html` (structure), `static/console.css`
-(design system), `static/console.js` (rendering, inputs, live monitor, batch).
+(design system: theme tokens, components, density, print), `static/console.js`
+(routing, rendering, inputs, live monitor, persistence).
 
 ## Views
 
 | View | What it does |
 | --- | --- |
-| **Analyze** | Drop or upload a WAV, record from the mic, or pick a sample. The verdict is a sentence that cites the measured numbers (share of energy above 18 kHz, carrier frequency, sideband level) and what an agent should do. Below it: a spectrogram (linear or log frequency, hover readout, carrier and 18 kHz edge marked), a waveform overview with the worst window outlined, a *detection breakdown* whose meters show each measurement against the engine's actual thresholds, a *decision map* placing the capture on the ρA × ρB plane with the 0.33 / 0.66 contours, the Welch spectrum, the window timeline and the agent confirmation gate. |
-| **Live monitor** | Microphone or a simulated stream, scored in 1 s windows: a scrolling 60 s spectrogram waterfall, a risk strip with the thresholds, a live gauge and an event log of flagged windows. Unseen flags show as a badge on the nav. |
-| **Batch** | Drop many WAVs: KPI counts, a sortable and filterable table with risk bars, CSV export, click a row to open it in Analyze. |
-| **Coverage** | Detection through a device capture chain, the agent gate policy, and the attack classes with what a stored recording keeps — what the screen cannot see is shown as plainly as what it can. |
+| **Overview** | Session KPIs (captures, flagged, could-not-assess, last verdict), recent captures, a risk trend over the last 40 captures, quick actions, engine status (version, uptime, detectors, thresholds) and the capture-chain coverage chart. |
+| **Analyze** | Drop or upload a WAV, record from the mic, or pick a sample. The verdict is a sentence that cites the measured numbers (share of energy above 18 kHz, carrier frequency, sideband level) and what an agent should do. Below it: a spectrogram (linear or log frequency, hover readout, carrier and 18 kHz edge marked), a waveform overview with the worst window outlined, a *detection breakdown* whose meters show each measurement against the engine's actual thresholds, a *decision map* on the ρA × ρB plane with the 0.33 / 0.66 contours, the Welch spectrum, the window timeline, the agent confirmation gate (under the active policy) and notes/tags. Export as JSON, a self-contained HTML report, the spectrogram PNG or the WAV. |
+| **Live monitor** | Microphone or a simulated stream, scored in 1 s windows: a scrolling 60 s spectrogram waterfall, a risk strip, a gauge and an event log. Flagged windows can be saved to History; unseen flags show as a badge on the nav. |
+| **Batch** | Drop many WAVs: KPI counts, a sortable and filterable table with risk bars, CSV export; rows open in Analyze and are added to History. |
+| **History** | Every analysed capture (upload, recording, batch, saved live flags) with its audio, kept in the browser's IndexedDB. Search by name, tag or note; filter; sort; export JSON/CSV; delete; open; send to Compare. Samples are not stored unless you ask. |
+| **Compare** | Two captures side by side with the verdict narrative, measurements and a B − A difference table (risk, out-of-band share, carrier, sidebands, ρA, ρB). |
+| **Gate policies** | Edit the verdict × action-class → allow/confirm/block matrix, pick a preset (Default, Strict, Permissive, Audit only), dry-run it against a stored capture, and save it as the active policy — which is then sent to `/api/gate` with every evaluation. |
+| **Coverage & limits** | Detection through a device capture chain, the active gate policy, and the attack classes with what a stored recording keeps — what the screen cannot see is shown as plainly as what it can. |
 | **API** | Endpoint and Python reference with copy buttons. |
+| **Settings** | Theme (system / dark / light), density, sidebar, analysis window and hop, autosave, toasts, local-storage usage, shortcuts, about. |
+
+Platform: collapsible sidebar (`[`), dark and light themes (`T`), a command
+palette (`⌘K`) that jumps to views, actions, samples and history, number keys
+for views, hash routing, toasts, whole-page drag-and-drop, and print styles.
+Preferences live in `localStorage`; captures live in IndexedDB. Nothing is
+stored server-side.
 
 The samples are synthetic — a formant-synthesised voice with no words, plus (for
 the injection sample) a 20 kHz carrier modulated by a second voice-like signal;
@@ -43,15 +55,21 @@ POST /api/scan   multipart: file=<wav> [window=1.0] [hop=0.5]
        thresholds{}, psd{freqs_hz[], psd_db[]}, spectrogram{shape, data(base64 uint8),
        fmax_hz, dur_s, vmin_db, vmax_db}, waveform[], windows[], capture_note, analysis_ms
 
-POST /api/gate   multipart: file=<wav> action=routine|sensitive|critical [command=...]
-    -> decision (allow|confirm|block), verdict, risk, reason, report{}
+POST /api/gate   multipart: file=<wav> action=routine|sensitive|critical
+                 [command=...] [window] [hop] [policy=<json>]
+    -> decision (allow|confirm|block), verdict, risk, reason, policy_source, report{}
 
-GET  /api/health -> { status, engine, version, thresholds }
+GET  /api/health -> { status, engine, version, uptime_s, detectors[], thresholds{},
+                      default_policy{}, verdicts[] }
 ```
+
+`policy` is a JSON object `{sensitivity: {verdict: decision}}`; any sensitivity
+left out falls back to the engine default, and a malformed matrix is a 422.
 
 ```bash
 curl -F file=@clip.wav -F window=1.0 http://127.0.0.1:8000/api/scan
 curl -F file=@clip.wav -F action=critical -F command="unlock the door" \
+     -F policy='{"critical":{"CLEAR":"confirm","SUSPICIOUS":"block","HIGH_RISK":"block","INSUFFICIENT_DATA":"block"}}' \
      http://127.0.0.1:8000/api/gate
 ```
 

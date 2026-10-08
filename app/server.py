@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import base64
 import io
+import json
 import os
 import time
 from typing import Optional
@@ -34,8 +35,8 @@ from echoguard.detectors._dsp import compute_spectrum
 from echoguard.detectors import modulation as _mod
 from echoguard.detectors import ultrasonic as _oob
 from echoguard.detectors.ultrasonic import NEAR_ULTRASOUND_LOW
-from echoguard.gate import ActionSensitivity, GateDecision
-from echoguard.pipeline import HIGH_RISK_RISK, INSUFFICIENT_DATA, SUSPICIOUS_RISK, InvalidInput
+from echoguard.gate import DEFAULT_POLICY, ActionSensitivity, GateDecision
+from echoguard.pipeline import HIGH_RISK_RISK, INSUFFICIENT_DATA, SUSPICIOUS_RISK, VERDICTS, InvalidInput
 
 # The engine's own constants, so the UI's meters show real thresholds rather than guesses.
 THRESHOLDS = {
@@ -61,6 +62,39 @@ app = FastAPI(title="EchoGuard", version="0.3.0",
               description="Defensive screen for inaudible voice-command injection.")
 _pipeline = Pipeline()
 _gate = ConfirmationGate()
+_started = time.time()
+
+
+def default_policy_json() -> dict:
+    return {s.value: {v: d.value for v, d in m.items()} for s, m in DEFAULT_POLICY.items()}
+
+
+def parse_policy(raw: Optional[str]) -> Optional[dict]:
+    """Validate a {sensitivity: {verdict: decision}} JSON policy from the client."""
+    if not raw:
+        return None
+    try:
+        obj = json.loads(raw)
+    except ValueError as exc:
+        raise HTTPException(422, f"policy is not valid JSON: {exc}") from None
+    if not isinstance(obj, dict):
+        raise HTTPException(422, "policy must be an object of sensitivity -> verdict -> decision")
+    out: dict = {}
+    for s_key, row in obj.items():
+        try:
+            sens = ActionSensitivity(s_key)
+        except ValueError:
+            raise HTTPException(422, f"unknown sensitivity {s_key!r}") from None
+        if not isinstance(row, dict) or set(row) != set(VERDICTS):
+            raise HTTPException(422, f"policy[{s_key}] must map every verdict {list(VERDICTS)}")
+        try:
+            out[sens] = {v: GateDecision(d) for v, d in row.items()}
+        except ValueError as exc:
+            raise HTTPException(422, f"policy[{s_key}]: {exc}") from None
+    # fill any sensitivity the client left out with the default
+    for sens, row in DEFAULT_POLICY.items():
+        out.setdefault(sens, row)
+    return out
 
 
 def _read_upload(upload: UploadFile) -> tuple[np.ndarray, int]:
@@ -192,26 +226,36 @@ async def api_gate(file: UploadFile = File(...),
                    action: str = Form(...),
                    command: Optional[str] = Form(None),
                    window: Optional[float] = Form(1.0),
-                   hop: float = Form(0.5)) -> JSONResponse:
+                   hop: float = Form(0.5),
+                   policy: Optional[str] = Form(None)) -> JSONResponse:
     try:
         sensitivity = ActionSensitivity(action)
     except ValueError:
         raise HTTPException(422, f"action must be one of {[s.value for s in ActionSensitivity]}") from None
+    custom = parse_policy(policy)
     signal, sr = _read_upload(file)
-    gate = ConfirmationGate(window_sec=(window or None), hop_sec=hop)
+    gate = ConfirmationGate(policy=custom, window_sec=(window or None), hop_sec=hop)
     try:
         result = gate.evaluate(signal, sr, sensitivity, command=command)
     except InvalidInput as exc:
         raise HTTPException(400, f"audio cannot be analysed: {exc}") from exc
     payload = result.to_dict()
     payload["decisions"] = [d.value for d in GateDecision]
+    payload["policy_source"] = "custom" if custom else "default"
     payload["capture_note"] = _capture_note(result.verdict, sr)
     return JSONResponse(payload)
 
 
 @app.get("/api/health")
 async def health() -> dict:
-    return {"status": "ok", "engine": "echoguard", "version": app.version, "thresholds": THRESHOLDS}
+    return {
+        "status": "ok", "engine": "echoguard", "version": app.version,
+        "uptime_s": round(time.time() - _started, 1),
+        "detectors": [d.name for d in _pipeline.detectors],
+        "thresholds": THRESHOLDS,
+        "default_policy": default_policy_json(),
+        "verdicts": list(VERDICTS),
+    }
 
 
 @app.get("/")

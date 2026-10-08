@@ -29,9 +29,31 @@ def _scan(sig, sr=SR, **form):
     return client.post("/api/scan", files=files, data=form)
 
 
-def test_health():
+def test_health_reports_engine_configuration():
     r = client.get("/api/health")
-    assert r.status_code == 200 and r.json()["engine"] == "echoguard"
+    assert r.status_code == 200
+    d = r.json()
+    assert d["engine"] == "echoguard" and d["uptime_s"] >= 0
+    assert "carrier_peak" in d["detectors"]
+    assert d["thresholds"]["oob_edge_hz"] == 18000.0
+    assert set(d["default_policy"]) == {"routine", "sensitive", "critical"}
+    assert set(d["default_policy"]["critical"]) == set(d["verdicts"])
+    assert d["default_policy"]["critical"]["HIGH_RISK"] == "block"
+
+
+def test_gate_honours_custom_policy():
+    import json
+    files = {"file": ("b.wav", _wav_bytes(synth.benign_speechlike(sample_rate=SR)), "audio/wav")}
+    strict = {"sensitive": {"CLEAR": "confirm", "SUSPICIOUS": "block", "HIGH_RISK": "block", "INSUFFICIENT_DATA": "block"}}
+    d = client.post("/api/gate", files=files, data={"action": "sensitive", "policy": json.dumps(strict)}).json()
+    assert d["decision"] == "confirm" and d["policy_source"] == "custom"
+
+
+def test_gate_rejects_malformed_policy():
+    files = {"file": ("b.wav", _wav_bytes(synth.benign_speechlike(sample_rate=SR)), "audio/wav")}
+    for bad in ("not json", '{"bogus": {}}', '{"critical": {"CLEAR": "allow"}}', '{"critical": {"CLEAR": "maybe", "SUSPICIOUS": "block", "HIGH_RISK": "block", "INSUFFICIENT_DATA": "block"}}'):
+        r = client.post("/api/gate", files=files, data={"action": "critical", "policy": bad})
+        assert r.status_code == 422, bad
 
 
 def test_index_served():
