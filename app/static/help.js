@@ -3,6 +3,17 @@
    t = what it is · d = what it shows · r = how to read it / what to do. */
 "use strict";
 const HELP = {
+  // executive
+  "page:exec": { t: "Executive summary", d: "Screening activity and outcomes across every source that sent audio to this server during the period — the fleet-level view.", r: "Reads from the server's retained captures when field-test retention is on; otherwise from this browser's History only, and says so. Print report produces a clean PDF." },
+  "screenings per day": { t: "Screenings per day", d: "How many captures were scored each day, stacked by verdict.", r: "Grey is 'could not assess' (below 36 kHz). A rising grey share means sources are sending phone-rate audio the screen cannot inspect." },
+  "verdict mix": { t: "Verdict mix", d: "Share of all screenings by verdict for the period.", r: "In a healthy deployment clear dominates; flagged is a small, investigated slice. 'Could not assess' is a capture-quality problem, not a security signal." },
+  "capture quality": { t: "Capture quality", d: "Sample rates of the audio received. The engine needs ≥ 36 kHz (ideally 44.1 or 48) to see the ultrasonic band.", r: "The assessable share is the single most important readiness number: below it, every verdict is 'could not check'." },
+  "detected carriers": { t: "Detected carriers", d: "Where in the spectrum flagged carriers were found, in 2 kHz bins.", r: "DolphinAttack-style emitters sit at 25–40 kHz; near-ultrasound from ordinary speakers sits at 18–22 kHz. Clustering tells you which family you are seeing." },
+  "gate decisions": { t: "Gate decisions", d: "Outcomes of agent gate evaluations in the period: executed, asked for confirmation, or refused.", r: "" },
+  "by source": { t: "By source", d: "One row per client address (device or tester) that sent audio, with its volume, flag rate and capture quality.", r: "A source whose captures are mostly 'could not assess' needs its recording settings fixed before its clear verdicts mean anything." },
+  "recent flagged captures": { t: "Recent flagged captures", d: "The latest suspicious and high-risk results with the carrier that triggered them.", r: "Files are in the server's capture directory; the same names appear in app.review_captures." },
+  "reading this report": { t: "Reading this report", d: "The caveats that belong next to the numbers.", r: "" },
+
   // pages
   "page:overview": { t: "Overview", d: "A summary of everything analysed in this browser and the state of the engine behind the console.", r: "Click a KPI to open History filtered to it. Click a bar in the trend to open that capture." },
   "page:analyze": { t: "Analyze", d: "Screens one recording for an inaudible (ultrasonic) voice-command injection and explains the decision.", r: "Drop a WAV at 44.1 kHz or higher. Every number comes from the detector; the browser only draws." },

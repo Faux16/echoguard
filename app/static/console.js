@@ -28,6 +28,7 @@ const ICONS = {
   policies: '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
   coverage: '<circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/>',
   api: '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/>',
+  exec: '<path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   upload: '<path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
   download: '<path d="M12 4v12m0 0l-4-4m4 4l4-4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
@@ -189,7 +190,7 @@ function renderARecent() {
 
 /* ============================================================ navigation */
 const NAV = [
-  { g: "Workspace" }, { v: "overview", l: "Overview", k: "1" }, { v: "analyze", l: "Analyze", k: "2" }, { v: "live", l: "Live monitor", k: "3", badge: true }, { v: "batch", l: "Batch", k: "4" },
+  { g: "Workspace" }, { v: "exec", l: "Executive", k: "`" }, { v: "overview", l: "Overview", k: "1" }, { v: "analyze", l: "Analyze", k: "2" }, { v: "live", l: "Live monitor", k: "3", badge: true }, { v: "batch", l: "Batch", k: "4" },
   { g: "Records" }, { v: "history", l: "History", k: "5" }, { v: "compare", l: "Compare", k: "6" },
   { g: "Configure" }, { v: "policies", l: "Gate policies", k: "7" }, { v: "coverage", l: "Coverage & limits", k: "8" }, { v: "api", l: "API", k: "9" }, { v: "settings", l: "Settings", k: "0" },
 ];
@@ -212,6 +213,7 @@ function go(v, opts = {}) {
   $("#crumbFile").textContent = f; $("#crumbSep").classList.toggle("hidden", !f);
   if (v === "live") { live.unseen = 0; updateBadge(); }
   if (v === "overview") renderOverview();
+  if (v === "exec") loadExec();
   if (v === "history") renderHistory();
   if (v === "compare") renderCompare();
   if (v === "policies") renderPolicies();
@@ -229,6 +231,7 @@ function redraw() {
   if (currentView === "live") { drawWaterfall(); drawStrip(); }
   if (currentView === "coverage") drawCoverage();
   if (currentView === "overview") { drawTrend(); drawOvCov(); }
+  if (currentView === "exec" && exec.data) drawExec();
 }
 let rzT; window.addEventListener("resize", () => { clearTimeout(rzT); rzT = setTimeout(redraw, 60); });
 
@@ -1302,6 +1305,100 @@ function renderSettings() {
   $$("#v-settings select[data-pref]").forEach(s => s.onchange = () => { prefs[s.dataset.pref] = s.value; savePrefs(); toast("Analysis defaults updated — applies to the next scan", "ok"); });
   $("#setClear").onclick = () => $("#hClear").click();
   navigator.storage?.estimate?.().then(e => { const q = $("#quota"), b = $("#quotaBar"); if (q && e.quota) { q.textContent = `${(e.usage / 1048576).toFixed(1)} of ${(e.quota / 1073741824).toFixed(1)} GB used`; b.style.width = Math.max(1, e.usage / e.quota * 100) + "%"; } });
+}
+
+/* ============================================================ executive view (fleet aggregates from /api/fleet, or this browser's History) */
+const exec = { days: 30, data: null, source: "server" };
+$$("#exDays button").forEach(b => b.onclick = () => { $$("#exDays button").forEach(x => x.classList.toggle("on", x === b)); exec.days = +b.dataset.d; loadExec(); });
+$("#exRefresh").onclick = loadExec; $("#exPrint").onclick = () => window.print();
+async function loadExec() {
+  let d = null;
+  try { const r = await fetch("/api/fleet?days=" + exec.days); d = await r.json(); } catch { d = null; }
+  if (!d || !d.enabled) { d = localFleet(exec.days); exec.source = "browser"; } else exec.source = "server";
+  exec.data = d; renderExec();
+}
+/* same shape as /api/fleet, built from History, for when the server keeps nothing */
+function localFleet(days) {
+  const since = Date.now() - days * 86400e3, rows = history.filter(r => r.ts >= since), V = Object.keys(VERDICT), isF = r => isFlag(r.verdict);
+  const byDay = {}; rows.forEach(r => { const k = new Date(r.ts).toISOString().slice(0, 10); byDay[k] = byDay[k] || Object.fromEntries(V.map(v => [v, 0])); byDay[k][r.verdict]++; });
+  const rates = {}; rows.forEach(r => { rates[r.sr] = (rates[r.sr] || 0) + 1; });
+  const scored = rows.filter(r => r.verdict !== "INSUFFICIENT_DATA"), ms = rows.map(r => r.data?.analysis_ms).filter(x => x != null).sort((a, b) => a - b);
+  return { enabled: true, days, total: rows.length, scored: scored.length, flagged: rows.filter(isF).length,
+    by_verdict: Object.fromEntries(V.map(v => [v, rows.filter(r => r.verdict === v).length])),
+    by_day: Object.entries(byDay).sort().map(([day, v]) => ({ day, ...v })),
+    clients: [{ client: "this browser", n: rows.length, flagged: rows.filter(isF).length, insufficient: rows.filter(r => r.verdict === "INSUFFICIENT_DATA").length, last_ts: rows.length ? Math.max(...rows.map(r => r.ts)) / 1000 : 0, peak: Math.max(0, ...rows.map(r => r.risk || 0)) }],
+    rates: Object.entries(rates).map(([sr, n]) => ({ sr: +sr, n })).sort((a, b) => a.sr - b.sr),
+    assessable_share: rows.length ? rows.filter(r => r.sr >= 36000).length / rows.length : null,
+    carriers_hz: rows.map(r => r.car).filter(Boolean).sort((a, b) => a - b),
+    latency_ms: ms.length ? { p50: ms[Math.floor(ms.length / 2)], p95: ms[Math.max(0, Math.ceil(ms.length * .95) - 1)], max: ms[ms.length - 1] } : null,
+    gates: { allow: 0, confirm: 0, block: 0 }, mean_risk: scored.length ? scored.reduce((a, r) => a + (r.risk || 0), 0) / scored.length : null,
+    recent_flagged: rows.filter(isF).sort((a, b) => b.ts - a.ts).slice(0, 12).map(r => ({ ts: r.ts / 1000, client: "this browser", file: r.name, verdict: r.verdict, risk: r.risk, sr: r.sr, carrier: r.car, sideband: r.sb, oob: r.oob })) };
+}
+const pct = (a, b) => b ? (a / b * 100).toFixed(a / b >= .1 || a === 0 ? 0 : 1) + "%" : "—";
+function renderExec() {
+  const d = exec.data, bv = d.by_verdict, srv = exec.source === "server";
+  $("#exSource").className = "pill" + (srv ? "" : " warn"); $("#exSource").innerHTML = srv ? `${icon("check")} server captures` : `${icon("warn")} this browser only — retention is off`;
+  $("#exSub").textContent = `${d.total} screening${d.total === 1 ? "" : "s"} in the last ${d.days} days · ${d.clients.length} source${d.clients.length === 1 ? "" : "s"}${srv ? " · generated " + new Date(d.generated_utc).toLocaleString() : ""}`;
+  const insuf = bv.INSUFFICIENT_DATA || 0;
+  kpiCards($("#exKpis"), [
+    ["Screenings", d.total, "var(--text)", `${d.scored} assessable`],
+    ["Flag rate", pct(d.flagged, d.scored), d.flagged ? "var(--bad)" : "var(--ok)", `${d.flagged} of ${d.scored} assessable`],
+    ["High risk", bv.HIGH_RISK || 0, bv.HIGH_RISK ? "var(--bad)" : "var(--text)", `${bv.SUSPICIOUS || 0} suspicious`],
+    ["Could not assess", pct(insuf, d.total), insuf ? "var(--na)" : "var(--ok)", `${insuf} below 36 kHz`],
+    ["Mean risk", d.mean_risk == null ? "—" : d.mean_risk.toFixed(2), "var(--text)", "assessable captures"],
+    ["Engine latency", d.latency_ms ? d.latency_ms.p50.toFixed(0) + "<small>ms</small>" : "—", "var(--text)", d.latency_ms ? `p95 ${d.latency_ms.p95.toFixed(0)} ms` : "no timings"]]);
+  $("#exDaySub").textContent = d.by_day.length ? `${d.by_day.length} active day${d.by_day.length === 1 ? "" : "s"}` : "no activity in this period";
+  $("#exDayLeg").innerHTML = Object.keys(VERDICT).map(v => `<span><i style="background:${VERDICT[v].hex}"></i>${VERDICT[v].label}</span>`).join("");
+  $("#exMixList").innerHTML = Object.keys(VERDICT).map(v => `<div class="kv"><span><i class="legend" style="margin:0"><i style="background:${VERDICT[v].hex}"></i></i>${VERDICT[v].label}</span><b>${bv[v] || 0} · ${pct(bv[v] || 0, d.total)}</b></div>`).join("");
+  const sh = d.assessable_share; $("#exRateNote").textContent = sh == null ? "No captures yet." : `${(sh * 100).toFixed(0)}% of captures were at ≥ 36 kHz and could be assessed.${sh < 1 ? " The rest returned “could not check”." : ""}`;
+  $("#exCarNote").textContent = d.carriers_hz.length ? `${d.carriers_hz.length} carrier${d.carriers_hz.length === 1 ? "" : "s"} · ${(d.carriers_hz[0] / 1000).toFixed(1)}–${(d.carriers_hz[d.carriers_hz.length - 1] / 1000).toFixed(1)} kHz` : "No carriers flagged in this period.";
+  const g = d.gates, gt = g.allow + g.confirm + g.block;
+  $("#exGates").innerHTML = gt ? `<div class="gbar">${["allow", "confirm", "block"].map(k => `<i class="g-${k}" style="width:${g[k] / gt * 100}%"></i>`).join("")}</div>` + ["allow", "confirm", "block"].map(k => `<div class="kv"><span><span class="cell c-${k}" style="min-width:64px;padding:2px 0">${k}</span></span><b>${g[k]} · ${pct(g[k], gt)}</b></div>`).join("") + `<div class="faint" style="font-size:12px;margin-top:8px">${gt} evaluation${gt === 1 ? "" : "s"} via /api/gate</div>`
+    : `<div class="empty" style="padding:20px 0"><b>No gate evaluations</b>Agent decisions appear here once /api/gate is used.</div>`;
+  $("#exSrcSub").textContent = `${d.clients.length} source${d.clients.length === 1 ? "" : "s"}`;
+  $("#exSrcBody").innerHTML = d.clients.length ? d.clients.map(c => `<tr><td><span class="mono">${esc(c.client)}</span></td><td class="n">${c.n}</td><td class="n">${c.flagged}</td><td class="n">${pct(c.flagged, c.n - c.insufficient)}</td><td class="n"${c.insufficient ? ' style="color:var(--na)"' : ""}>${pct(c.insufficient, c.n)}</td><td class="n">${c.peak.toFixed(2)}</td><td class="n faint">${fmtWhen(c.last_ts * 1000)}</td></tr>`).join("")
+    : `<tr><td colspan="7"><div class="empty">No sources in this period.</div></td></tr>`;
+  $("#exFlagBody").innerHTML = d.recent_flagged.length ? d.recent_flagged.map(r => `<tr><td class="faint" style="white-space:nowrap">${fmtWhen(r.ts * 1000)}</td><td class="mono" style="font-size:12px">${esc(r.client)}</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.file)}</td><td>${vtag(r.verdict)}</td><td class="n">${rbar(r.risk, r.verdict)}</td><td class="n">${r.carrier ? (r.carrier / 1000).toFixed(1) + " kHz" : "—"}</td></tr>`).join("")
+    : `<tr><td colspan="6"><div class="empty">Nothing flagged in this period.</div></td></tr>`;
+  $("#exNotes").innerHTML = [
+    ["Flag rate is over assessable captures", "Captures below 36 kHz are excluded from the denominator: the engine could not look at them, so they are neither clear nor flagged."],
+    ["A flag is a signature, not a confirmed attack", "Suspicious and high-risk mean the capture carries the structure of an ultrasonic command carrier. Treat them as leads to investigate; the gate already made them safe to act on."],
+    ["Clean verdicts depend on the capture chain", `Through a phone's 48 kHz converter the benchmark keeps only 4 of 12 injections. ${sh != null && sh < 1 ? `${((1 - sh) * 100).toFixed(0)}% of this period's audio could not be assessed at all.` : "Keep sources at ≥ 44.1 kHz."}`],
+  ].map(([b, t]) => `<div><b>${b}</b>${t}</div>`).join("");
+  drawExec();
+}
+function drawExec() {
+  const d = exec.data; if (!d || currentView !== "exec") return;
+  const V = Object.keys(VERDICT);
+  // stacked daily bars
+  { const c = $("#exDay"); if (c.offsetParent) { const { ctx, W, H } = fit(c), L = 34, R = 8, T = 10, B = 26, pw = W - L - R, ph = H - T - B, ax = AX(), gr = GRID();
+    ctx.clearRect(0, 0, W, H); const days = d.by_day, max = Math.max(1, ...days.map(x => V.reduce((a, v) => a + (x[v] || 0), 0)));
+    const step = niceStep(max, 4); ctx.font = "10.5px Helvetica"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (let y = 0; y <= max; y += step) { const yy = T + (1 - y / max) * ph; ctx.strokeStyle = gr; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(W - R, yy); ctx.stroke(); ctx.fillStyle = ax; ctx.fillText(y, L - 6, yy); }
+    if (!days.length) { ctx.fillStyle = TXT3(); ctx.textAlign = "center"; ctx.font = "12.5px Helvetica"; ctx.fillText("No screenings in this period", L + pw / 2, T + ph / 2); }
+    const bw = Math.min(42, pw / Math.max(days.length, 1) * .7), gap = pw / Math.max(days.length, 1);
+    days.forEach((x, i) => { let y0 = T + ph; const cx = L + gap * i + gap / 2;
+      V.forEach(v => { const n = x[v] || 0; if (!n) return; const h = n / max * ph; ctx.fillStyle = VERDICT[v].hex; roundRect(ctx, cx - bw / 2, y0 - h, bw, h, 2); ctx.fill(); y0 -= h; });
+      if (days.length <= 14 || i % Math.ceil(days.length / 10) === 0) { ctx.fillStyle = ax; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText(x.day.slice(5), cx, T + ph + 7); } }); } }
+  // donut
+  { const c = $("#exDonut"); if (c.offsetParent) { const { ctx, W, H } = fit(c), cx = W / 2, cy = H / 2, r = Math.min(W, H) / 2 - 4, tot = Math.max(1, d.total); let a = -Math.PI / 2;
+    ctx.clearRect(0, 0, W, H); ctx.lineWidth = 16;
+    if (!d.total) { ctx.strokeStyle = cssVar("--track"); ctx.beginPath(); ctx.arc(cx, cy, r - 8, 0, 7); ctx.stroke(); }
+    V.forEach(v => { const n = d.by_verdict[v] || 0; if (!n) return; const b = a + n / tot * 2 * Math.PI; ctx.strokeStyle = VERDICT[v].hex; ctx.beginPath(); ctx.arc(cx, cy, r - 8, a + .02, b - .02); ctx.stroke(); a = b; });
+    ctx.fillStyle = TXT(); ctx.font = "600 22px Helvetica"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(d.total, cx, cy - 6);
+    ctx.fillStyle = TXT3(); ctx.font = "10.5px Helvetica"; ctx.fillText("screenings", cx, cy + 12); } }
+  // sample rates
+  { const c = $("#exRates"); if (c.offsetParent) barChart(c, d.rates.map(x => [(x.sr / 1000).toFixed(1) + " kHz", d.total ? Math.round(x.n / d.total * 100) : 0, x.sr >= 36000 ? "#34d399" : "#8b9ab3"]).slice(0, 6), { T: 18, B: 24, L: 34 }); }
+  // carrier histogram, 2 kHz bins from 15 kHz
+  { const c = $("#exCar"); if (c.offsetParent) { const bins = {}; d.carriers_hz.forEach(f => { const k = Math.floor(f / 2000) * 2; bins[k] = (bins[k] || 0) + 1; });
+    const ks = Object.keys(bins).map(Number).sort((a, b) => a - b), data = ks.map(k => [`${k}–${k + 2}k`, bins[k], "#fbbf24"]);
+    const { ctx, W, H } = fit(c), L = 28, R = 8, T = 16, B = 24, pw = W - L - R, ph = H - T - B, ax = AX(), gr = GRID(); ctx.clearRect(0, 0, W, H);
+    if (!data.length) { ctx.fillStyle = TXT3(); ctx.font = "12.5px Helvetica"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("No carriers flagged", L + pw / 2, T + ph / 2); }
+    else { const max = Math.max(...data.map(x => x[1])), bw = pw / data.length; ctx.font = "10.5px Helvetica";
+      [0, max].forEach(v => { const y = T + (1 - v / max) * ph; ctx.strokeStyle = gr; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.fillStyle = ax; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(v, L - 5, y); });
+      data.forEach(([l, n, col], i) => { const x = L + i * bw + bw * .18, w = bw * .64, h = Math.max(2, ph * n / max); ctx.fillStyle = col; roundRect(ctx, x, T + ph - h, w, h, 3); ctx.fill();
+        ctx.fillStyle = TXT(); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.font = "600 11px Helvetica"; ctx.fillText(n, x + w / 2, T + ph - h - 3);
+        ctx.fillStyle = ax; ctx.font = "10px Helvetica"; ctx.textBaseline = "top"; ctx.fillText(l, x + w / 2, T + ph + 7); }); } } }
 }
 
 /* ============================================================ api view */

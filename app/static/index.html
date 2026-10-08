@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/console.css?v=13">
+<link rel="stylesheet" href="/static/console.css?v=14">
 <script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
 </head>
 <body>
@@ -33,6 +33,27 @@
     </header>
 
     <main id="main">
+      <!-- EXECUTIVE -->
+      <section class="view" id="v-exec">
+        <div class="pagehead"><div><h1>Executive summary</h1><div class="sub" id="exSub">Screening activity and outcomes across every source that used this server</div></div>
+          <div class="acts"><span class="pill" id="exSource"></span><div class="seg" id="exDays"><button data-d="7">7 d</button><button data-d="30" class="on">30 d</button><button data-d="90">90 d</button><button data-d="365">1 y</button></div><button class="btn ghost" id="exRefresh"><span class="ico-slot" data-ico="history"></span>Refresh</button><button class="btn primary" id="exPrint"><span class="ico-slot" data-ico="doc"></span>Print report</button></div></div>
+        <div class="kpis six" id="exKpis"></div>
+        <div class="exgrid">
+          <div class="card"><div class="card-h"><h3>Screenings per day</h3><span class="sub" id="exDaySub"></span></div><div class="card-b"><canvas id="exDay" class="cv" style="height:220px"></canvas><div class="legend" id="exDayLeg"></div></div></div>
+          <div class="card"><div class="card-h"><h3>Verdict mix</h3><span class="sub">share of all screenings</span></div><div class="card-b exmix"><canvas id="exDonut" class="cv"></canvas><div id="exMixList"></div></div></div>
+        </div>
+        <div class="exgrid3">
+          <div class="card"><div class="card-h"><h3>Capture quality</h3><span class="sub">sample rates seen</span></div><div class="card-b"><canvas id="exRates" class="cv" style="height:150px"></canvas><div class="faint" id="exRateNote" style="font-size:12px;margin-top:8px"></div></div></div>
+          <div class="card"><div class="card-h"><h3>Detected carriers</h3><span class="sub">frequency of flagged carriers</span></div><div class="card-b"><canvas id="exCar" class="cv" style="height:150px"></canvas><div class="faint" id="exCarNote" style="font-size:12px;margin-top:8px"></div></div></div>
+          <div class="card"><div class="card-h"><h3>Gate decisions</h3><span class="sub">agent evaluations</span></div><div class="card-b" id="exGates"></div></div>
+        </div>
+        <div class="exgrid">
+          <div class="card"><div class="card-h"><h3>By source</h3><span class="sub" id="exSrcSub"></span></div><div class="card-b tablewrap" style="padding-top:6px"><table><thead><tr><th>Source</th><th class="n">Screenings</th><th class="n">Flagged</th><th class="n">Flag rate</th><th class="n">Could not assess</th><th class="n">Peak risk</th><th class="n">Last seen</th></tr></thead><tbody id="exSrcBody"></tbody></table></div></div>
+          <div class="card"><div class="card-h"><h3>Recent flagged captures</h3><span class="sub">newest first</span></div><div class="card-b tablewrap" style="padding-top:6px"><table><thead><tr><th>When</th><th>Source</th><th>File</th><th>Verdict</th><th class="n">Risk</th><th class="n">Carrier</th></tr></thead><tbody id="exFlagBody"></tbody></table></div></div>
+        </div>
+        <div class="card" style="margin-top:var(--gap)"><div class="card-h"><h3>Reading this report</h3></div><div class="card-b exnotes" id="exNotes"></div></div>
+      </section>
+
       <!-- OVERVIEW -->
       <section class="view" id="v-overview">
         <div class="pagehead"><div><h1>Overview</h1><div class="sub" id="ovSub">Session summary and engine status</div></div>
@@ -244,7 +265,7 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
 <div class="toasts" id="toasts"></div>
 <div id="paletteMount"></div>
 <input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
-<script src="/static/help.js?v=13"></script>
-<script src="/static/console.js?v=13"></script>
+<script src="/static/help.js?v=14"></script>
+<script src="/static/console.js?v=14"></script>
 </body>
 </html>

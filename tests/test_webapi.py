@@ -118,6 +118,31 @@ def test_gate_allows_sensitive_on_benign():
     assert d["decision"] == "allow"
 
 
+def test_fleet_disabled_without_retention():
+    r = client.get("/api/fleet")
+    assert r.status_code == 200 and r.json() == {"enabled": False}
+
+
+def test_fleet_aggregates_retained_captures(tmp_path, monkeypatch):
+    import app.server as srv
+    monkeypatch.setattr(srv, "CAPTURE_DIR", str(tmp_path))
+    srv._fleet_cache.update(key=None, rows=[])
+    _scan(synth.out_of_band(sample_rate=SR))
+    _scan(synth.benign_speechlike(sample_rate=SR))
+    _scan(synth.benign_speechlike(sample_rate=16_000), sr=16_000)
+    files = {"file": ("a.wav", _wav_bytes(synth.out_of_band(sample_rate=SR)), "audio/wav")}
+    client.post("/api/gate", files=files, data={"action": "critical"})
+    assert len(list(tmp_path.glob("*.json"))) == 4
+    d = client.get("/api/fleet?days=7").json()
+    assert d["enabled"] and d["total"] == 4 and d["flagged"] == 2
+    assert d["by_verdict"]["INSUFFICIENT_DATA"] == 1 and d["by_verdict"]["CLEAR"] == 1
+    assert d["gates"]["block"] == 1
+    assert len(d["carriers_hz"]) == 2 and d["assessable_share"] == pytest.approx(0.75)
+    assert d["clients"][0]["n"] == 4 and d["latency_ms"]["p50"] >= 0
+    assert d["recent_flagged"][0]["verdict"] == "HIGH_RISK"
+    assert len(d["by_day"]) == 1 and d["by_day"][0]["HIGH_RISK"] == 2
+
+
 def test_gate_rejects_bad_action():
     files = {"file": ("b.wav", _wav_bytes(synth.benign_speechlike(sample_rate=SR)), "audio/wav")}
     r = client.post("/api/gate", files=files, data={"action": "bogus"})

@@ -274,6 +274,100 @@ async def api_gate(request: Request,
     return JSONResponse(payload)
 
 
+_fleet_cache: dict = {"key": None, "rows": []}
+
+
+def _load_captures() -> list[dict]:
+    """Parse every retained result once per change (keyed on the directory listing + mtimes)."""
+    if not CAPTURE_DIR or not os.path.isdir(CAPTURE_DIR):
+        return []
+    names = sorted(n for n in os.listdir(CAPTURE_DIR) if n.endswith(".json"))
+    key = tuple((n, os.path.getmtime(os.path.join(CAPTURE_DIR, n))) for n in names)
+    if key == _fleet_cache["key"]:
+        return _fleet_cache["rows"]
+    rows = []
+    for n in names:
+        try:
+            with open(os.path.join(CAPTURE_DIR, n), encoding="utf-8") as fh:
+                d = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        meta, rep = d.get("_meta", {}), d.get("report") or d
+        ev = {f["name"]: f.get("evidence") or {} for f in rep.get("findings", [])}
+        ann = d.get("annotations") or {
+            "oob_ratio": ev.get("out_of_band_energy", {}).get("out_of_band_ratio"),
+            "carrier_peak_hz": ev.get("carrier_peak", {}).get("peak_freq_hz"),
+            "carrier_sideband_db": ev.get("carrier_peak", {}).get("sideband_db")}
+        car = next((f for f in rep.get("findings", []) if f["name"] == "carrier_peak"), None)
+        carrier = ann.get("carrier_peak_hz") if car and car.get("assessable") and car.get("risk", 0) >= SUSPICIOUS_RISK else None
+        try:
+            ts = datetime.strptime(meta.get("received_utc", "")[:19], "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc).timestamp()
+        except ValueError:
+            ts = os.path.getmtime(os.path.join(CAPTURE_DIR, n))
+        rows.append({
+            "ts": ts, "client": meta.get("client", "unknown"), "kind": meta.get("kind", "scan"),
+            "file": d.get("filename") or n, "verdict": d.get("verdict"), "risk": d.get("overall_risk", d.get("risk")),
+            "sr": rep.get("sample_rate"), "dur": rep.get("duration_sec"), "oob": ann.get("oob_ratio"),
+            "carrier": carrier, "sideband": ann.get("carrier_sideband_db"), "ms": d.get("analysis_ms"),
+            "decision": d.get("decision"), "action": d.get("action"),
+        })
+    _fleet_cache.update(key=key, rows=rows)
+    return rows
+
+
+@app.get("/api/fleet")
+async def fleet(days: int = 30) -> dict:
+    """Aggregates over retained captures for the executive view."""
+    if not CAPTURE_DIR:
+        return {"enabled": False}
+    days = max(1, min(int(days), 365))
+    now = time.time()
+    rows = [r for r in _load_captures() if r["ts"] >= now - days * 86400]
+    by_day: dict[str, dict] = {}
+    for r in rows:
+        day = datetime.fromtimestamp(r["ts"], timezone.utc).strftime("%Y-%m-%d")
+        by_day.setdefault(day, dict.fromkeys(VERDICTS, 0))
+        if r["verdict"] in VERDICTS:
+            by_day[day][r["verdict"]] += 1
+    clients: dict[str, dict] = {}
+    for r in rows:
+        c = clients.setdefault(r["client"], {"client": r["client"], "n": 0, "flagged": 0, "insufficient": 0, "last_ts": 0, "peak": 0.0})
+        c["n"] += 1
+        c["flagged"] += r["verdict"] in ("SUSPICIOUS", "HIGH_RISK")
+        c["insufficient"] += r["verdict"] == INSUFFICIENT_DATA
+        c["last_ts"] = max(c["last_ts"], r["ts"])
+        c["peak"] = max(c["peak"], float(r["risk"] or 0))
+    rates: dict[int, int] = {}
+    for r in rows:
+        if r["sr"]:
+            rates[int(r["sr"])] = rates.get(int(r["sr"]), 0) + 1
+    carriers = sorted(float(r["carrier"]) for r in rows if r["carrier"])
+    ms = sorted(float(r["ms"]) for r in rows if r["ms"] is not None)
+    gates = {d.value: 0 for d in GateDecision}
+    for r in rows:
+        if r["decision"] in gates:
+            gates[r["decision"]] += 1
+    scored = [r for r in rows if r["verdict"] in ("CLEAR", "SUSPICIOUS", "HIGH_RISK")]
+    flagged = [r for r in rows if r["verdict"] in ("SUSPICIOUS", "HIGH_RISK")]
+    return {
+        "enabled": True, "days": days, "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "total": len(rows), "scored": len(scored), "flagged": len(flagged),
+        "by_verdict": {v: sum(r["verdict"] == v for r in rows) for v in VERDICTS},
+        "by_day": [{"day": d, **v} for d, v in sorted(by_day.items())],
+        "clients": sorted(clients.values(), key=lambda c: -c["n"]),
+        "rates": [{"sr": sr, "n": n} for sr, n in sorted(rates.items())],
+        "assessable_share": (sum(n for sr, n in rates.items() if sr >= 36_000) / sum(rates.values())) if rates else None,
+        "carriers_hz": carriers,
+        "latency_ms": {"p50": ms[len(ms) // 2], "p95": ms[int(len(ms) * .95) - 1 if len(ms) > 1 else 0], "max": ms[-1]} if ms else None,
+        "gates": gates,
+        "mean_risk": (sum(float(r["risk"] or 0) for r in scored) / len(scored)) if scored else None,
+        "recent_flagged": [
+            {k: r[k] for k in ("ts", "client", "file", "verdict", "risk", "sr", "carrier", "sideband", "oob")}
+            for r in sorted(flagged, key=lambda r: -r["ts"])[:12]
+        ],
+    }
+
+
 @app.get("/api/health")
 async def health() -> dict:
     return {

@@ -20,6 +20,7 @@ Files: `server.py` (FastAPI), `static/index.html` (structure), `static/console.c
 
 | View | What it does |
 | --- | --- |
+| **Executive** | The fleet-level view: screenings per day stacked by verdict, verdict mix, flag rate over assessable captures, capture quality (sample rates and assessable share), detected-carrier histogram, gate decisions, a per-source table (volume, flag rate, could-not-assess share, peak risk, last seen) and recent flagged captures, for 7 / 30 / 90 / 365 days, with a print layout. Reads `/api/fleet` when retention is on, otherwise this browser's History (and says so). |
 | **Overview** | Session KPIs (captures, flagged, could-not-assess, last verdict), recent captures, a risk trend over the last 40 captures, quick actions, engine status (version, uptime, detectors, thresholds) and the capture-chain coverage chart. |
 | **Analyze** | Drop or upload a WAV, record from the mic, or pick a sample. The verdict is a sentence that cites the measured numbers (share of energy above 18 kHz, carrier frequency, sideband level) and what an agent should do. Below it: a spectrogram (linear or log frequency, hover readout, carrier and 18 kHz edge marked), a waveform overview with the worst window outlined, a *detection breakdown* whose meters show each measurement against the engine's actual thresholds, a *decision map* on the ρA × ρB plane with the 0.33 / 0.66 contours, the Welch spectrum, the window timeline, the agent confirmation gate (under the active policy) and notes/tags. Export as JSON, a self-contained HTML report, the spectrogram PNG or the WAV. |
 | **Live monitor** | Microphone or a simulated stream, scored in 1 s windows: a scrolling 60 s spectrogram waterfall, a risk strip, a gauge and an event log. Flagged windows can be saved to History; unseen flags show as a badge on the nav. |
@@ -58,6 +59,10 @@ POST /api/scan   multipart: file=<wav> [window=1.0] [hop=0.5]
 POST /api/gate   multipart: file=<wav> action=routine|sensitive|critical
                  [command=...] [window] [hop] [policy=<json>]
     -> decision (allow|confirm|block), verdict, risk, reason, policy_source, report{}
+
+GET  /api/fleet?days=30 -> { enabled, total, scored, flagged, by_verdict{}, by_day[], clients[],
+                            rates[], assessable_share, carriers_hz[], latency_ms{}, gates{},
+                            mean_risk, recent_flagged[] }   (enabled:false without retention)
 
 GET  /api/health -> { status, engine, version, uptime_s, detectors[], thresholds{},
                       default_policy{}, verdicts[] }
