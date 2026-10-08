@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EchoGuard Console</title>
+<meta name="color-scheme" content="dark light">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/console.css?v=14">
+<script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="rail" id="rail">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3d9bff"/><stop offset="1" stop-color="#7c6cff"/></linearGradient></defs>
+        <rect x="1" y="1" width="30" height="30" rx="9" fill="none" stroke="url(#lg)" stroke-width="1.6"/><path d="M8.5 16h2.4l2-5 3 10 2.2-7 1.4 2H23.5" fill="none" stroke="url(#lg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="t"><b>EchoGuard</b><span>Injection analysis</span></div>
+    </div>
+    <div id="navmount"></div>
+    <div class="railfoot" id="engineCard"><span class="led" id="led"></span><div class="t"><b id="engState">Connecting…</b><span id="engSub">—</span></div></div>
+  </aside>
+
+  <div class="content">
+    <header class="appbar">
+      <button class="iconbtn" id="railBtn" title="Toggle sidebar ( [ )" aria-label="Toggle sidebar"></button>
+      <div class="crumbs"><span>Workspace</span><span class="sep">/</span><b id="crumbView">Overview</b><span class="sep hidden" id="crumbSep">/</span><span class="file" id="crumbFile"></span></div>
+      <div class="spacer"></div>
+      <div class="search" id="searchBtn"><span class="ico-slot"></span><span>Search or jump to…</span><span class="kbd">⌘K</span></div>
+      <button class="iconbtn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme"></button>
+      <div class="rel"><button class="iconbtn" id="moreBtn" title="More" aria-label="More"></button><div class="menu hidden" id="moreMenu"></div></div>
+    </header>
+
+    <main id="main">
+      <!-- EXECUTIVE -->
+      <section class="view" id="v-exec">
+        <div class="pagehead"><div><h1>Executive summary</h1><div class="sub" id="exSub">Screening activity and outcomes across every source that used this server</div></div>
+          <div class="acts"><span class="pill" id="exSource"></span><div class="seg" id="exDays"><button data-d="7">7 d</button><button data-d="30" class="on">30 d</button><button data-d="90">90 d</button><button data-d="365">1 y</button></div><button class="btn ghost" id="exRefresh"><span class="ico-slot" data-ico="history"></span>Refresh</button><button class="btn primary" id="exPrint"><span class="ico-slot" data-ico="doc"></span>Print report</button></div></div>
+        <div class="kpis six" id="exKpis"></div>
+        <div class="exgrid">
+          <div class="card"><div class="card-h"><h3>Screenings per day</h3><span class="sub" id="exDaySub"></span></div><div class="card-b"><canvas id="exDay" class="cv" style="height:220px"></canvas><div class="legend" id="exDayLeg"></div></div></div>
+          <div class="card"><div class="card-h"><h3>Verdict mix</h3><span class="sub">share of all screenings</span></div><div class="card-b exmix"><canvas id="exDonut" class="cv"></canvas><div id="exMixList"></div></div></div>
+        </div>
+        <div class="exgrid3">
+          <div class="card"><div class="card-h"><h3>Capture quality</h3><span class="sub">sample rates seen</span></div><div class="card-b"><canvas id="exRates" class="cv" style="height:150px"></canvas><div class="faint" id="exRateNote" style="font-size:12px;margin-top:8px"></div></div></div>
+          <div class="card"><div class="card-h"><h3>Detected carriers</h3><span class="sub">frequency of flagged carriers</span></div><div class="card-b"><canvas id="exCar" class="cv" style="height:150px"></canvas><div class="faint" id="exCarNote" style="font-size:12px;margin-top:8px"></div></div></div>
+          <div class="card"><div class="card-h"><h3>Gate decisions</h3><span class="sub">agent evaluations</span></div><div class="card-b" id="exGates"></div></div>
+        </div>
+        <div class="exgrid">
+          <div class="card"><div class="card-h"><h3>By source</h3><span class="sub" id="exSrcSub"></span></div><div class="card-b tablewrap" style="padding-top:6px"><table><thead><tr><th>Source</th><th class="n">Screenings</th><th class="n">Flagged</th><th class="n">Flag rate</th><th class="n">Could not assess</th><th class="n">Peak risk</th><th class="n">Last seen</th></tr></thead><tbody id="exSrcBody"></tbody></table></div></div>
+          <div class="card"><div class="card-h"><h3>Recent flagged captures</h3><span class="sub">newest first</span></div><div class="card-b tablewrap" style="padding-top:6px"><table><thead><tr><th>When</th><th>Source</th><th>File</th><th>Verdict</th><th class="n">Risk</th><th class="n">Carrier</th></tr></thead><tbody id="exFlagBody"></tbody></table></div></div>
+        </div>
+        <div class="card" style="margin-top:var(--gap)"><div class="card-h"><h3>Reading this report</h3></div><div class="card-b exnotes" id="exNotes"></div></div>
+      </section>
+
+      <!-- OVERVIEW -->
+      <section class="view" id="v-overview">
+        <div class="pagehead"><div><h1>Overview</h1><div class="sub" id="ovSub">Session summary and engine status</div></div>
+          <div class="acts"><button class="btn" data-go="live"><span class="ico-slot" data-ico="live"></span>Live monitor</button><button class="btn primary" data-go="analyze"><span class="ico-slot" data-ico="plus"></span>New analysis</button></div></div>
+        <div class="kpis" id="kpis"></div>
+        <div class="ovgrid">
+          <div class="stack">
+            <div class="card"><div class="card-h"><h3>Recent captures</h3><span class="sub" id="recentSub"></span><div class="right"><button class="btn sm ghost" data-go="history">View all</button></div></div><div class="card-b recent" id="recent"></div></div>
+            <div class="card"><div class="card-h"><h3>Risk over recent captures</h3><span class="sub">last 40, newest right</span></div><div class="card-b"><canvas id="ovTrend" class="cv" style="height:150px"></canvas></div></div>
+          </div>
+          <div class="stack">
+            <div class="card"><div class="card-h"><h3>Quick actions</h3></div><div class="card-b quick" id="quick"></div></div>
+            <div class="card engine"><div class="card-h"><h3>Engine</h3><span class="sub" id="engVerSub"></span></div><div class="card-b" id="engineKv"></div></div>
+            <div class="card"><div class="card-h"><h3>Coverage at a glance</h3></div><div class="card-b"><canvas id="ovCov" class="cv" style="height:150px"></canvas><p class="faint" style="font-size:12px;margin:10px 0 0">Carrier-based detection does not survive a phone's capture chain; this screen is for ≥ 44.1 kHz captures. <a data-go="coverage" href="#">Details</a></p></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ANALYZE -->
+      <section class="view" id="v-analyze">
+        <div id="a-empty">
+          <div class="hero">
+            <div>
+              <h1>Screen a voice capture for<br>inaudible command injection</h1>
+              <p class="lead">EchoGuard inspects a recording for ultrasonic carriers and their modulation sidebands, explains what it found, and tells an action-taking agent whether to allow, confirm or block.</p>
+              <div class="dropzone" id="dz"><span class="ico-slot" data-ico="upload"></span><b>Drop a WAV file here</b>
+                <span class="faint" style="font-size:13px">or choose one — capture at 44.1 kHz or higher to assess the ultrasonic band</span>
+                <div class="actions"><button class="btn primary" data-act="upload"><span class="ico-slot" data-ico="upload"></span>Choose file</button><button class="btn rec" data-act="record"><span class="dot"></span><span class="rl">Record from mic</span></button></div></div>
+              <div class="facts"><div class="fact"><b>Real engine</b>The browser only draws; every number comes from the detector.</div><div class="fact"><b>Local by design</b>Audio is scored in memory; history stays in your browser.</div><div class="fact"><b>Honest limits</b>16 kHz captures return “insufficient data”, never a false clear.</div></div>
+            </div>
+            <div class="samples"><div class="lbl">Try a sample</div>
+              <div class="sample" data-demo="attack"><canvas class="thumb"></canvas><div><h4>Ultrasonic injection</h4><p>Speech-modulated 20 kHz carrier over a voice · 48 kHz</p><span class="tag sm t-HIGH_RISK"><span class="d"></span>expected high risk</span></div></div>
+              <div class="sample" data-demo="benign"><canvas class="thumb"></canvas><div><h4>Clean speech</h4><p>Voice in a quiet room, no ultrasonic content · 48 kHz</p><span class="tag sm t-CLEAR"><span class="d"></span>expected clear</span></div></div>
+              <div class="sample" data-demo="beacon"><canvas class="thumb"></canvas><div><h4>Retail beacon</h4><p>Steady 19 kHz pilot tone with speech — a benign look-alike · 48 kHz</p><span class="tag sm t-CLEAR"><span class="d"></span>expected clear</span></div></div>
+              <div class="sample" data-demo="phone"><canvas class="thumb"></canvas><div><h4>Phone capture</h4><p>The same injection recorded at 16 kHz</p><span class="tag sm t-INSUFFICIENT_DATA"><span class="d"></span>expected insufficient data</span></div></div>
+            </div>
+          </div>
+          <div class="how">
+            <div class="step"><i>1</i><b>Capture</b><span>A WAV at ≥ 44.1 kHz. Below that, Nyquist sits under the 18 kHz band and the screen reports insufficient data rather than guessing.</span></div>
+            <div class="step"><i>2</i><b>Measure</b><span>Welch spectrum per 1 s window: share of energy above 18 kHz (ρA) and a CFAR-detected narrowband peak above 15 kHz with its modulation sidebands (ρB).</span></div>
+            <div class="step"><i>3</i><b>Decide</b><span>R = √(ρA × ρB) — both signatures must be present. ≥ 0.33 suspicious, ≥ 0.66 high risk. The worst window decides.</span></div>
+            <div class="step"><i>4</i><b>Gate</b><span>Verdict × action class → allow, confirm or block, under the policy you set. Nothing here reads or reconstructs a command.</span></div>
+          </div>
+          <div class="card" id="aRecent" style="margin-top:var(--gap)"><div class="card-h"><h3>Recent captures</h3><div class="right"><button class="btn sm ghost" data-go="history">View all</button></div></div><div class="card-b recent" id="aRecentList"></div></div>
+        </div>
+        <div id="a-main" class="hidden">
+          <div class="pagehead">
+            <div><h1 id="fName" style="font-size:19px">—</h1><div class="metas"><span class="m"><b id="mRate">—</b> sample rate</span><span class="m">Nyquist <b id="mNyq">—</b></span><span class="m"><b id="mDur">—</b></span><span class="m"><b id="mWin">—</b> windows</span><span class="m" id="mSaved"></span></div></div>
+            <div class="acts">
+              <button class="btn ghost" data-act="new"><span class="ico-slot" data-ico="back"></span>New capture</button>
+              <button class="btn ghost" data-act="compare"><span class="ico-slot" data-ico="compare"></span>Compare</button>
+              <div class="rel"><button class="btn ghost" id="exportBtn"><span class="ico-slot" data-ico="download"></span>Export</button><div class="menu hidden" id="exportMenu"></div></div>
+              <button class="btn rec" data-act="record"><span class="dot"></span><span class="rl">Record</span></button>
+              <button class="btn primary" data-act="upload"><span class="ico-slot" data-ico="upload"></span>Upload</button>
+            </div>
+          </div>
+          <div class="card verdict">
+            <div class="v-l"><div class="tagrow"><span class="tag" id="vTag"><span class="d"></span><span id="vTagT">—</span></span><span class="help-slot" data-help="verdict"></span></div><h1 id="vTitle">—</h1><p id="vReason">—</p>
+              <div class="action" id="vAction"><span class="ico-slot" data-ico="info"></span><span id="vActionT">—</span></div></div>
+            <div class="v-m"><div class="score" id="vScore"></div></div>
+            <div class="v-r" id="vStats"></div>
+          </div>
+          <div class="agrid">
+            <div class="card"><div class="card-h"><h3>Spectrogram</h3><span class="sub" id="specSub"></span><span class="zoomnote hidden" id="zoomNote"></span><div class="right"><div class="seg" id="scaleSeg"><button data-s="lin" class="on">Linear</button><button data-s="log">Log</button></div></div></div>
+              <div class="card-b"><canvas id="ov" class="cv"></canvas><div class="spec-wrap"><canvas id="spec" class="cv"></canvas></div>
+                <div class="speclegend"><i><span class="swl"></span>18 kHz out-of-band edge</i><i><span class="swc"></span>detected carrier</i><i>shaded: band the out-of-band detector measures</i><span class="readout" id="readout">hover: time · freq · dB</span></div></div></div>
+            <div class="stack">
+              <div class="card"><div class="card-h"><h3>Detection breakdown</h3><span class="sub" id="bdSub">engine thresholds · click a meter to learn more</span></div><div class="card-b"><div id="inspectHead"></div><div id="breakdown"></div></div></div>
+              <div class="card"><div class="card-h"><h3>Decision map</h3><span class="sub" id="dmapSub">where this capture lands</span></div><div class="card-b"><canvas id="dmap" class="cv"></canvas></div></div>
+            </div>
+          </div>
+          <div class="bgrid">
+            <div class="card"><div class="card-h"><h3>Power spectrum</h3><span class="sub" id="psdSub">Welch estimate · hover for level</span></div><div class="card-b"><canvas id="psd" class="cv"></canvas></div></div>
+            <div class="card"><div class="card-h"><h3>Window timeline</h3><span class="sub">worst window decides · click a bar</span></div><div class="card-b"><canvas id="tl" class="cv" style="cursor:pointer"></canvas><div class="faint" id="tlNote" style="font-size:12px;margin-top:8px"></div><div id="winSel"></div></div></div>
+            <div class="card"><div class="card-h"><h3>Agent confirmation gate</h3><span class="sub" id="gatePolicyName"></span></div><div class="card-b">
+              <div class="gopts"><div class="gopt" data-a="routine"><b>Routine</b><span>weather, timers</span></div><div class="gopt on" data-a="sensitive"><b>Sensitive</b><span>messages, settings</span></div><div class="gopt" data-a="critical"><b>Critical</b><span>unlock, payments</span></div></div>
+              <button class="btn" id="gateBtn" style="width:100%;justify-content:center">Evaluate action</button><div id="gateOut"></div></div></div>
+          </div>
+          <div class="card notes">
+            <div class="card-h"><h3>Notes &amp; tags</h3><span class="sub">saved with this capture in History</span><div class="right"><span class="sub" id="noteState"></span></div></div>
+            <div class="card-b">
+              <div class="field"><label for="tagNew">Tags</label><div class="tagsin" id="tagsIn"></div><span class="hint">Enter or comma adds a tag · searchable from History</span></div>
+              <div class="field"><label for="noteIn">Note</label><textarea class="inp" id="noteIn" placeholder="Device, room, distance, what you were testing…"></textarea></div>
+            </div>
+          </div>
+        </div>
+        <div class="err" id="aErr"></div>
+      </section>
+
+      <!-- LIVE -->
+      <section class="view" id="v-live">
+        <div class="pagehead"><div><h1>Live monitor</h1><div class="metas"><span class="m"><span class="statusdot" id="lDot"></span><b id="lState">Idle</b></span><span class="m"><b id="lRate">—</b></span><span class="m"><b id="lN">0</b> windows</span><span class="m"><b id="lF">0</b> flagged</span></div></div>
+          <div class="acts"><button class="btn ghost" id="simBtn"><span class="ico-slot" data-ico="play"></span>Simulated stream</button><button class="btn primary" id="liveBtn"><span class="ico-slot" data-ico="mic"></span>Start microphone</button></div></div>
+        <div class="lgrid">
+          <div class="card"><div class="card-h"><h3>Spectrogram waterfall</h3><span class="sub">last 60 s · 1 s windows scored by the engine · click a column</span></div><div class="card-b"><canvas id="wf" class="cv" style="cursor:pointer"></canvas><canvas id="ls" class="cv" style="cursor:pointer"></canvas><div id="lDetail"></div></div></div>
+          <div class="stack">
+            <div class="card"><div class="card-h"><h3>Current window</h3></div><div class="card-b" style="display:grid;gap:12px">
+              <div class="score" id="lScore"></div>
+              <span class="tag t-INSUFFICIENT_DATA" id="lTag"><span class="d"></span><span id="lTagT">Idle</span></span><div class="faint" id="lNote" style="font-size:12.5px;text-align:center">Start the microphone, or play a simulated stream. Nothing is stored.</div></div></div>
+            <div class="card"><div class="card-h"><h3>Session</h3></div><div class="card-b" id="lStats"></div></div>
+            <div class="card"><div class="card-h"><h3>Event log</h3><div class="right"><button class="btn sm ghost" id="lSave">Save flags</button></div></div><div class="card-b"><div class="log" id="lLog"><div class="faint ph">No events yet.</div></div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BATCH -->
+      <section class="view" id="v-batch">
+        <div class="pagehead"><div><h1>Batch screening</h1><div class="sub">Score many captures; results are added to History</div></div>
+          <div class="acts"><button class="btn ghost" id="csvBtn"><span class="ico-slot" data-ico="download"></span>Export CSV</button><button class="btn ghost" id="clearBtn">Clear</button><button class="btn primary" id="batchPick"><span class="ico-slot" data-ico="upload"></span>Add WAVs</button></div></div>
+        <div class="dropzone dz-sm" id="bdz"><span class="ico-slot" data-ico="upload"></span><div><b>Drop WAV files</b><div class="faint" style="font-size:12.5px">or click to choose several · scored one at a time</div></div></div>
+        <div class="kpis" id="bkpis" style="margin-top:var(--gap)"></div>
+        <div class="card fill"><div class="card-h"><h3>Results</h3><span class="sub" id="bCount">0 files</span><div class="right"><div class="seg" id="bFilter"><button data-f="all" class="on">All</button><button data-f="flag">Flagged</button><button data-f="CLEAR">Clear</button><button data-f="INSUFFICIENT_DATA">Insufficient</button></div></div></div>
+          <div class="card-b" style="padding-top:6px"><div class="empty hidden" id="bEmpty"></div><div class="tablewrap" id="bTable"><table><thead><tr><th class="sortable" data-k="name">File</th><th class="sortable" data-k="verdict">Verdict</th><th class="sortable n" data-k="risk">Risk</th><th class="sortable n" data-k="sr">Rate</th><th class="sortable n" data-k="dur">Duration</th><th class="sortable n" data-k="oob">Above 18 kHz</th><th class="sortable n" data-k="car">Carrier</th></tr></thead><tbody id="bBody"></tbody></table></div></div></div>
+      </section>
+
+      <!-- COMPARE -->
+      <section class="view" id="v-compare">
+        <div class="pagehead"><div><h1>Compare</h1><div class="sub">Two captures from History, side by side</div></div></div>
+        <div class="cmpgrid" id="cmpGrid"></div>
+        <div class="card" style="margin-top:var(--gap)"><div class="card-h"><h3>Differences</h3></div><div class="card-b tablewrap" id="cmpDiff"></div></div>
+      </section>
+
+      <!-- HISTORY -->
+      <section class="view" id="v-history">
+        <div class="pagehead"><div><h1>History</h1><div class="sub" id="hSub">Stored locally in this browser</div></div>
+          <div class="acts"><button class="btn ghost" id="hExport"><span class="ico-slot" data-ico="download"></span>Export JSON</button><button class="btn ghost" id="hCsv"><span class="ico-slot" data-ico="download"></span>CSV</button><button class="btn danger" id="hClear">Clear history</button></div></div>
+        <div class="kpis" id="hkpis"></div>
+        <div class="card fill"><div class="card-h"><div class="filters"><input class="inp" id="hQ" placeholder="Search name, tag, note…" style="width:260px"><div class="seg" id="hFilter"><button data-f="all" class="on">All</button><button data-f="flag">Flagged</button><button data-f="CLEAR">Clear</button><button data-f="INSUFFICIENT_DATA">Insufficient</button></div></div><div class="right"><span class="sub" id="hCount"></span></div></div>
+          <div class="card-b" style="padding-top:6px"><div class="empty hidden" id="hEmpty"></div><div class="tablewrap" id="hTable"><table><thead><tr><th class="sortable" data-k="ts">When</th><th class="sortable" data-k="name">Capture</th><th class="sortable" data-k="verdict">Verdict</th><th class="sortable n" data-k="risk">Risk</th><th class="sortable n" data-k="sr">Rate</th><th>Tags</th><th></th></tr></thead><tbody id="hBody"></tbody></table></div></div></div>
+      </section>
+
+      <!-- POLICIES -->
+      <section class="view" id="v-policies">
+        <div class="pagehead"><div><h1>Gate policies</h1><div class="sub">What an agent does for each verdict and action class. The active policy is sent to the engine with every gate evaluation.</div></div>
+          <div class="acts"><button class="btn ghost" id="polReset">Reset to default</button><button class="btn primary" id="polSave"><span class="ico-slot" data-ico="check"></span>Save as active</button></div></div>
+        <div class="polgrid">
+          <div class="stack">
+            <div class="card"><div class="card-h"><h3>Policy matrix</h3><span class="sub" id="polState"></span></div><div class="card-b tablewrap" id="polMatrix"></div></div>
+            <div class="card"><div class="card-h"><h3>What each decision means</h3><span class="sub">for an agent, and for the CLI</span></div><div class="card-b"><div class="dec">
+              <span class="big g-allow">ALLOW</span><span>Execute the action. The capture shows no injection signature at a level the policy cares about.</span><code>exit 0</code>
+              <span class="big g-confirm">CONFIRM</span><span>Pause and ask the user through a channel the attacker cannot reach — a screen tap, a second device, a spoken passphrase.</span><code>exit 7</code>
+              <span class="big g-block">BLOCK</span><span>Refuse and log. Do not reveal what was detected; surface it in the audit trail.</span><code>exit 8</code>
+            </div></div></div>
+            <div class="card"><div class="card-h"><h3>Policy as JSON</h3><span class="sub">what the console sends as <span class="mono">policy</span></span></div><div class="card-b"><div class="code" id="polJson"></div></div></div>
+          </div>
+          <div class="stack">
+            <div class="card"><div class="card-h"><h3>Presets</h3></div><div class="card-b presets" id="polPresets"></div></div>
+            <div class="card"><div class="card-h"><h3>Dry run</h3><span class="sub">gate a stored capture under the policy being edited</span></div><div class="card-b">
+              <div class="row" style="gap:8px"><select class="inp" id="dryPick" style="flex:1"></select><button class="btn" id="dryBtn">Run</button></div><div id="dryOut"></div></div></div>
+            <div class="card"><div class="card-h"><h3>Principles</h3></div><div class="card-b faint" style="font-size:13px;line-height:1.6">
+              <p style="margin:0 0 8px"><b class="muted">Critical actions should never execute silently.</b> Even on a clear verdict, an unlock or payment deserves a confirmation — the screen is not a guarantee.</p>
+              <p style="margin:0 0 8px"><b class="muted">“Could not check” is not “safe”.</b> A 16 kHz capture returns insufficient data; treat sensitive actions from it as unverified.</p>
+              <p style="margin:0"><b class="muted">Defence in depth.</b> Combine with speaker verification, liveness and rate limits. The gate is one signal.</p></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COVERAGE -->
+      <section class="view" id="v-coverage">
+        <div class="pagehead"><div><h1>Coverage &amp; limits</h1><div class="sub">What a stored recording keeps — and what this screen can and cannot see</div></div></div>
+        <div class="cgrid">
+          <div class="card"><div class="card-h"><h3>Detection through a device capture chain</h3><span class="sub">simulated attacks, 12 per condition</span></div><div class="card-b"><canvas id="cbar" class="cv" style="cursor:pointer"></canvas><div id="cbarNote"></div><p class="faint" style="font-size:12.5px;margin:12px 0 0">A phone's converter low-passes before storing audio, so the ultrasonic carrier is usually gone from the file. All 2,934 real DolphinAttack captures are 16 kHz and return “insufficient data”.</p></div></div>
+          <div class="card"><div class="card-h"><h3>Default agent gate policy</h3><div class="right"><button class="btn sm ghost" data-go="policies">Edit</button></div></div><div class="card-b tablewrap" id="covPolicy"></div></div>
+        </div>
+        <div class="card" style="margin-top:var(--gap)"><div class="card-h"><h3>Attack classes</h3><span class="sub">see docs/threat_model.md</span></div><div class="card-b"><div class="classes" id="classes"></div></div></div>
+      </section>
+
+      <!-- API -->
+      <section class="view" id="v-api">
+        <div class="pagehead"><div><h1>API</h1><div class="sub">The same engine over HTTP · stateless · nothing stored server-side</div></div></div>
+        <div class="grid2">
+          <div class="card"><div class="card-h"><span class="ep"><span class="m">POST</span>/api/scan</span></div><div class="card-b"><div class="faint" style="font-size:13px">Multipart <b class="muted">file</b> (WAV), optional <b class="muted">window</b>, <b class="muted">hop</b>. Returns verdict, risk, per-detector evidence, engine thresholds, PSD, spectrogram grid, waveform, window timeline and a capture-rate note.</div><div class="code">curl -F file=@clip.wav -F window=1.0 \
+     http://127.0.0.1:8000/api/scan<button class="copy">Copy</button></div></div></div>
+          <div class="card"><div class="card-h"><span class="ep"><span class="m">POST</span>/api/gate</span></div><div class="card-b"><div class="faint" style="font-size:13px">Multipart <b class="muted">file</b>, <b class="muted">action</b> = routine | sensitive | critical, optional <b class="muted">command</b> and <b class="muted">policy</b> (JSON matrix, as saved in Gate policies). Returns allow, confirm or block with the reason.</div><div class="code">curl -F file=@cmd.wav -F action=critical \
+     -F command="unlock the door" \
+     -F policy=@policy.json \
+     http://127.0.0.1:8000/api/gate<button class="copy">Copy</button></div></div></div>
+        </div>
+        <div class="card" style="margin-top:var(--gap)"><div class="card-h"><span class="ep"><span class="m get">GET</span>/api/health</span><span class="sub" style="margin-left:6px">version, detectors, thresholds, default policy — and Python</span></div><div class="card-b"><div class="code">from echoguard import Pipeline, ConfirmationGate, ActionSensitivity
+
+report = Pipeline().analyze_windows(samples, sample_rate).summary
+result = ConfirmationGate().evaluate(samples, sample_rate, ActionSensitivity.CRITICAL)
+print(report.verdict, result.decision)<button class="copy">Copy</button></div></div></div>
+        <div class="grid2" style="margin-top:var(--gap)">
+          <div class="card"><div class="card-h"><h3>Scan response</h3><span class="sub">fields and what they mean</span></div><div class="card-b" id="apiFields"></div></div>
+          <div class="card"><div class="card-h"><span class="ep"><span class="m get">GET</span>/api/health</span><span class="sub">live from this server</span><div class="right"><button class="btn sm ghost" id="apiPing">Refresh</button></div></div><div class="card-b"><div class="code" id="apiHealth" style="margin-top:0;max-height:360px"></div></div></div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="view" id="v-settings">
+        <div class="pagehead"><div><h1>Settings</h1><div class="sub">Preferences are stored in this browser</div></div></div>
+        <div class="grid2">
+          <div class="stack">
+            <div class="card"><div class="card-h"><h3>Appearance</h3></div><div class="card-b" id="setAppearance"></div></div>
+            <div class="card"><div class="card-h"><h3>Analysis defaults</h3></div><div class="card-b" id="setAnalysis"></div></div>
+          </div>
+          <div class="stack">
+            <div class="card"><div class="card-h"><h3>Data &amp; privacy</h3></div><div class="card-b" id="setData"></div></div>
+            <div class="card"><div class="card-h"><h3>Keyboard shortcuts</h3></div><div class="card-b" id="setKeys"></div></div>
+            <div class="card"><div class="card-h"><h3>About</h3></div><div class="card-b" id="setAbout"></div></div>
+          </div>
+        </div>
+      </section>
+      <footer class="foot"><span class="led" id="footLed"></span><span id="footEng">EchoGuard</span><span class="sep">·</span><span>Defensive screen — probe signals carry no command content</span><span class="sep">·</span><a href="https://github.com/swarnali2k17/echoguard" target="_blank" rel="noopener">Source</a><span class="sep">·</span><a href="#" data-go="api">API</a><span class="sep">·</span><a href="#" data-go="coverage">Limits</a><span class="sep">·</span><span id="footPolicy"></span></footer>
+    </main>
+  </div>
+</div>
+<div class="toasts" id="toasts"></div>
+<div id="paletteMount"></div>
+<input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
+<script src="/static/help.js?v=14"></script>
+<script src="/static/console.js?v=14"></script>
+</body>
+</html>
