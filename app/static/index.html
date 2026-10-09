@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/console.css?v=14">
+<link rel="stylesheet" href="/static/console.css?v=15">
 <script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
 </head>
 <body>
@@ -221,6 +221,35 @@
         <div class="card" style="margin-top:var(--gap)"><div class="card-h"><h3>Attack classes</h3><span class="sub">see docs/threat_model.md</span></div><div class="card-b"><div class="classes" id="classes"></div></div></div>
       </section>
 
+      <!-- TRUST -->
+      <section class="view" id="v-trust">
+        <div class="pagehead"><div><h1>Trust gate</h1><div class="sub">Should the agent act on this command? Four checks — signal, speaker, source, content — one decision.</div></div>
+          <div class="acts"><span class="pill" id="tModels"></span><button class="btn ghost" id="tDemoBtn"><span class="ico-slot" data-ico="spark"></span>Run the demo</button></div></div>
+        <div class="tgrid">
+          <div class="stack">
+            <div class="card"><div class="card-h"><h3>Command</h3><span class="sub">the audio the agent heard, and what it understood</span></div><div class="card-b">
+              <div class="field"><label>Command audio</label><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" id="tPick"><span class="ico-slot" data-ico="upload"></span>Choose WAV</button><button class="btn rec" id="tRec"><span class="dot"></span><span class="rl">Record</span></button><span class="faint" id="tFile" style="font-size:12.5px">none</span></div></div>
+              <div class="field" style="margin-top:12px"><label>Transcript <span class="faint" style="text-transform:none;letter-spacing:0;font-weight:400">— what the recogniser heard</span></label><input class="inp" id="tTranscript" placeholder="unlock the front door"></div>
+              <div class="field" style="margin-top:12px"><label>Action sensitivity</label><div class="gopts" id="tSens"><div class="gopt" data-a="routine"><b>Routine</b><span>weather, timers</span></div><div class="gopt on" data-a="sensitive"><b>Sensitive</b><span>messages, settings</span></div><div class="gopt" data-a="critical"><b>Critical</b><span>unlock, payments</span></div></div></div>
+              <details class="tmore"><summary>Optional inputs</summary>
+                <div class="field" style="margin-top:10px"><label>Wake-word audio <span class="faint" style="text-transform:none;letter-spacing:0;font-weight:400">— for the same-voice check</span></label><div class="row" style="gap:8px"><button class="btn sm" id="tWakePick">Choose WAV</button><button class="btn sm rec" id="tWakeRec"><span class="dot"></span><span class="rl">Record</span></button><span class="faint" id="tWakeFile" style="font-size:12.5px">none</span></div></div>
+                <div class="field" style="margin-top:10px"><label>Second transcript <span class="faint" style="text-transform:none;letter-spacing:0;font-weight:400">— from another recogniser, for the consistency check</span></label><input class="inp" id="tAlt" placeholder="optional"></div>
+                <div class="field" style="margin-top:10px"><label>Required layers</label><div class="row" style="gap:12px;font-size:12.5px"><label><input type="checkbox" class="tReq" value="L1" checked> L1 signal</label><label><input type="checkbox" class="tReq" value="L2" checked> L2 speaker</label><label><input type="checkbox" class="tReq" value="L3"> L3 source</label><label><input type="checkbox" class="tReq" value="L4" checked> L4 content</label></div></div>
+              </details>
+              <button class="btn primary" id="tRun" style="width:100%;justify-content:center;margin-top:14px">Evaluate</button><div class="err" id="tErr"></div></div></div>
+            <div class="card"><div class="card-h"><h3>Enrolled speaker</h3><span class="sub">who the agent should obey</span></div><div class="card-b">
+              <div class="row" style="gap:8px;flex-wrap:wrap"><select class="inp" id="tProfile" style="flex:1;min-width:160px"><option value="">no profile — speaker unverified</option></select><button class="btn sm ghost" id="tProfileDel" title="Delete profile">${""}<span class="ico-slot" data-ico="trash"></span></button></div>
+              <div class="faint" style="font-size:12.5px;margin:12px 0 8px">Enrol a new voice: a name and three short recordings of the user speaking naturally.</div>
+              <div class="row" style="gap:8px;flex-wrap:wrap"><input class="inp" id="tEnrolName" placeholder="name" style="width:140px"><button class="btn sm rec" id="tEnrolRec"><span class="dot"></span><span class="rl">Record utterance</span></button><span class="faint" id="tEnrolCount" style="font-size:12.5px">0 recorded</span><span class="spacer"></span><button class="btn sm primary" id="tEnrolBtn" disabled>Enrol</button></div></div></div>
+          </div>
+          <div class="stack">
+            <div class="card" id="tResult"><div class="card-h"><h3>Decision</h3><span class="sub" id="tResSub">run an evaluation</span></div><div class="card-b" id="tResBody"><div class="empty"><b>No evaluation yet</b>Choose or record a command, type what the agent heard, pick the action's sensitivity, and evaluate. Or run the demo.</div></div></div>
+            <div class="card"><div class="card-h"><h3>Trust tuple</h3><span class="sub" id="tTupleSub">one card per check</span></div><div class="card-b"><div class="layers" id="tLayers"></div></div></div>
+            <div class="card"><div class="card-h"><h3>Demo scenarios</h3><span class="sub">the engine runs each one for real</span></div><div class="card-b scenarios" id="tScenarios"></div></div>
+          </div>
+        </div>
+      </section>
+
       <!-- API -->
       <section class="view" id="v-api">
         <div class="pagehead"><div><h1>API</h1><div class="sub">The same engine over HTTP · stateless · nothing stored server-side</div></div></div>
@@ -265,7 +294,7 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
 <div class="toasts" id="toasts"></div>
 <div id="paletteMount"></div>
 <input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
-<script src="/static/help.js?v=14"></script>
-<script src="/static/console.js?v=14"></script>
+<script src="/static/help.js?v=15"></script>
+<script src="/static/console.js?v=15"></script>
 </body>
 </html>
