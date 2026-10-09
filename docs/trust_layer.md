@@ -91,8 +91,13 @@ clean L1 + L4 alone. Add your own check by subclassing `Check` and returning
 - `AntiSpoofCheck` uses `lab260/Spectra-AASIST` (MIT; wav2vec2-XLS-R + AASIST).
   It separates synthetic and converted speech from live voices; replay through a
   loudspeaker is only partly covered (ASVspoof physical access is a different
-  task) and is also attacked from the source side (L3). Its trust mapping is
-  calibrated on ASVspoof2019 LA — see `benchmark/trust/RESULTS.md`.
+  task) and is also attacked from the source side (L3). On a stratified
+  ASVspoof2019 LA evaluation sample (500 bonafide, 1,040 spoofs over the 13
+  unseen attacks) the model separates the classes with no overlap — EER 0 %,
+  bonafide logits above 3.6, spoofs below −2.3 — and the trust mapping
+  (`spoof_below=-2.0`, `bonafide_from=2.5`) sits in that gap. That is the
+  model's own benchmark domain; the margin will shrink on real device
+  captures and must be re-measured on the Phase 0 corpus.
 - L4 is a transparent rule baseline with eight families: override, role
   change, forcing, exfiltration, authority claim, tool abuse (recited
   destinations and secrets), concealment. Every match is returned in the

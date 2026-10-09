@@ -1,0 +1,124 @@
+{
+ "dataset": "ASVspoof2019 LA evaluation partition (16 kHz; TTS and voice-conversion attacks A07-A19)",
+ "source": "SpeechAntiSpoofingBenchmarks/ASVspoof2019_LA (parquet mirror, ODC-By)",
+ "model": "lab260/Spectra-AASIST",
+ "shards_loaded": 2,
+ "available_in_shards": {
+  "A07": 1095,
+  "A08": 1093,
+  "A09": 1046,
+  "A10": 1120,
+  "A11": 1082,
+  "A12": 1060,
+  "A13": 1070,
+  "A14": 1109,
+  "A15": 1062,
+  "A16": 1115,
+  "A17": 1114,
+  "A18": 1073,
+  "A19": 1126,
+  "bonafide": 1667
+ },
+ "trials": 1540,
+ "bonafide": 500,
+ "spoof": 1040,
+ "eer": 0.0,
+ "eer_threshold": 2.11,
+ "far_at_frr5": 0.0,
+ "threshold_frr5": 3.615,
+ "far_at_frr1": 0.0,
+ "threshold_frr1": 3.29,
+ "bonafide_mean_logit": 4.083,
+ "bonafide_p05_logit": 3.615,
+ "spoof_mean_logit": -4.249,
+ "spoof_p95_logit": -2.251,
+ "at_default_mapping": {
+  "accept_at": 1.015,
+  "reject_below": -0.47,
+  "far": 0.0067,
+  "frr": 0.0,
+  "undecided_target": 0.0,
+  "undecided_impostor": 0.0077
+ },
+ "per_attack": {
+  "A07": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0,
+   "accepted_at_default": 0.0,
+   "mean_logit": -5.01
+  },
+  "A08": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0,
+   "accepted_at_default": 0.0,
+   "mean_logit": -4.009
+  },
+  "A09": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0,
+   "accepted_at_default": 0.0,
+   "mean_logit": -4.69
+  },
+  "A10": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0,
+   "accepted_at_default": 0.0,
+   "mean_logit": -4.184
+  },
+  "A11": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0,
+   "accepted_at_default": 0.0,
+   "mean_logit": -5.177
+  },
+  "A12": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0,
+   "accepted_at_default": 0.0,
+   "mean_logit": -4.381
+  },
+  "A13": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0,
+   "accepted_at_default": 0.0,
+   "mean_logit": -3.896
+  },
+  "A14": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0,
+   "accepted_at_default": 0.0,
+   "mean_logit": -4.723
+  },
+  "A15": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0,
+   "accepted_at_default": 0.0,
+   "mean_logit": -4.886
+  },
+  "A16": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0,
+   "accepted_at_default": 0.0,
+   "mean_logit": -4.191
+  },
+  "A17": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0125,
+   "accepted_at_default": 0.0375,
+   "mean_logit": -2.698
+  },
+  "A18": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0,
+   "accepted_at_default": 0.05,
+   "mean_logit": -3.063
+  },
+  "A19": {
+   "n": 80,
+   "miss_rate_at_eer": 0.0,
+   "accepted_at_default": 0.0,
+   "mean_logit": -4.329
+  }
+ },
+ "elapsed_s": 743.1
+}

@@ -3,8 +3,10 @@
 Scorer: Spectra-AASIST (`lab260/Spectra-AASIST`, MIT) — a wav2vec2-XLS-R
 encoder with an AASIST graph-attention head, trained for ASVspoof-style
 logical-access detection. It returns a bonafide logit; the published default
-decision point is -1.14. The mapping to trust and the exact threshold are
-calibrated on ASVspoof2019 LA (benchmark/trust/RESULTS.md).
+decision point is -1.14. The mapping to trust is calibrated on the ASVspoof2019 LA
+evaluation attacks (benchmark/trust/RESULTS.md): on that clean 16 kHz material
+the two classes are separated by several logits; expect the margin to shrink on
+real device captures.
 
 The model is optional (`pip install "echoguard[trust]"` + the first-run download
 of ~1.5 GB of weights). Without it the check reports "could not check" and the
@@ -107,8 +109,11 @@ class AntiSpoofCheck(Check):
     name = "anti_spoofing"
     layer = Layer.SPEAKER
 
+    # Calibrated on ASVspoof2019 LA eval (benchmark/trust/RESULTS.md): bonafide logits sit above
+    # ~3.6 (5th percentile), spoof below ~-2.3 (95th percentile); EER threshold 2.1. The accept
+    # point (trust 0.67) lands at logit 1.0, the reject point (0.34) at -0.5, inside that gap.
     def __init__(self, scorer: Optional[SpoofScorer] = None,
-                 spoof_below: float = -3.0, bonafide_from: float = 1.0):
+                 spoof_below: float = -2.0, bonafide_from: float = 2.5):
         self.scorer = scorer
         self.spoof_below = spoof_below
         self.bonafide_from = bonafide_from
