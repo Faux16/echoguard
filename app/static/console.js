@@ -3,10 +3,10 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const VERDICT = {
-  CLEAR:             { hex: "#34d399", label: "Clear" },
-  SUSPICIOUS:        { hex: "#fbbf24", label: "Suspicious" },
-  HIGH_RISK:         { hex: "#f87171", label: "High risk" },
-  INSUFFICIENT_DATA: { hex: "#8b9ab3", label: "Insufficient data" },
+  CLEAR:             { tok: "--ok",   label: "Clear",             get hex() { return cssVar(this.tok) || "#0f8a5f"; } },
+  SUSPICIOUS:        { tok: "--warn", label: "Suspicious",        get hex() { return cssVar(this.tok) || "#c26a00"; } },
+  HIGH_RISK:         { tok: "--bad",  label: "High risk",         get hex() { return cssVar(this.tok) || "#d1352b"; } },
+  INSUFFICIENT_DATA: { tok: "--na",   label: "Insufficient data", get hex() { return cssVar(this.tok) || "#7a8494"; } },
 };
 const RANK = { CLEAR: 0, INSUFFICIENT_DATA: 1, SUSPICIOUS: 2, HIGH_RISK: 3 };
 const isFlag = v => v === "SUSPICIOUS" || v === "HIGH_RISK";
@@ -169,9 +169,11 @@ async function health() {
     const r = await fetch("/api/health"); const d = await r.json(); engine.ok = true; engine.info = d;
     $("#led").classList.remove("off"); $("#engState").textContent = "Engine online"; $("#engSub").textContent = "echoguard " + d.version + " · " + d.detectors.length + " detectors";
     $("#footEng").textContent = `EchoGuard ${d.version} · engine online · up ${fmtUptime(d.uptime_s)}`;
-    if (d.retention && !engine.retentionShown) { engine.retentionShown = true; toast("Field-test mode: this server keeps a copy of every upload and its result", "info", 6000); }
+    $("#envBadge").className = "envb " + (d.retention ? "field" : "prod");
+    $("#envBadge").querySelector("span").textContent = d.retention ? "Field test · uploads retained" : "Stateless · nothing stored";
+    $("#envBadge").title = d.retention ? "This server keeps a copy of every upload and its result for analysis" : "Audio is scored in memory and discarded";
     $("#footEng").textContent += d.retention ? " · uploads retained for testing" : "";
-  } catch { engine.ok = false; $("#led").classList.add("off"); $("#engState").textContent = "Engine offline"; $("#engSub").textContent = "start the server"; $("#footEng").textContent = "EchoGuard · engine offline"; }
+  } catch { engine.ok = false; $("#envBadge").className = "envb"; $("#envBadge").querySelector("span").textContent = "Engine offline"; $("#led").classList.add("off"); $("#engState").textContent = "Engine offline"; $("#engSub").textContent = "start the server"; $("#footEng").textContent = "EchoGuard · engine offline"; }
   $("#footLed").classList.toggle("off", !engine.ok); renderFootPolicy();
   renderEngineCard();
 }
@@ -181,7 +183,7 @@ function paintThumbs() {
     const c = demoCache[card.dataset.demo]; if (!c) continue;
     const cv = card.querySelector("canvas"), { ctx, W, H } = fit(cv); if (W < 2) continue;
     const sp = c.data.spectrogram; paintGrid(ctx, decodeGrid(sp), sp.shape[0], sp.shape[1], 0, 0, W, H, sp.fmax_hz, "lin");
-    if (sp.fmax_hz > 18000) { const y = (1 - 18000 / sp.fmax_hz) * H; ctx.strokeStyle = "#f87171"; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    if (sp.fmax_hz > 18000) { const y = (1 - 18000 / sp.fmax_hz) * H; ctx.strokeStyle = cssVar("--bad"); ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
   }
 }
 function renderARecent() {
@@ -191,8 +193,8 @@ function renderARecent() {
 
 /* ============================================================ navigation */
 const NAV = [
-  { g: "Workspace" }, { v: "exec", l: "Executive", k: "`" }, { v: "overview", l: "Overview", k: "1" }, { v: "analyze", l: "Analyze", k: "2" }, { v: "trust", l: "Trust gate", k: "t" }, { v: "live", l: "Live monitor", k: "3", badge: true }, { v: "batch", l: "Batch", k: "4" },
-  { g: "Records" }, { v: "history", l: "History", k: "5" }, { v: "compare", l: "Compare", k: "6" },
+  { g: "Protect" }, { v: "trust", l: "Trust gate", k: "g" }, { v: "live", l: "Live monitor", k: "3", badge: true }, { v: "analyze", l: "Signal analysis", k: "2" }, { v: "batch", l: "Batch screening", k: "4" },
+  { g: "Observe" }, { v: "exec", l: "Executive summary", k: "`" }, { v: "overview", l: "Activity", k: "1" }, { v: "history", l: "History", k: "5" }, { v: "compare", l: "Compare", k: "6" },
   { g: "Configure" }, { v: "policies", l: "Gate policies", k: "7" }, { v: "coverage", l: "Coverage & limits", k: "8" }, { v: "api", l: "API", k: "9" }, { v: "settings", l: "Settings", k: "0" },
 ];
 const VIEW_NAMES = Object.fromEntries(NAV.filter(n => n.v).map(n => [n.v, n.l]));
@@ -543,13 +545,13 @@ function drawSpectrogram(d) {
   ctx.textAlign = "center"; ctx.textBaseline = "top";
   for (let t = Math.ceil(t0 / st) * st; t <= t1 + 1e-9; t += st) { const x = xOfT(t); ctx.strokeStyle = gr; ctx.beginPath(); ctx.moveTo(x, y0 + ph); ctx.lineTo(x, y0 + ph + 4); ctx.stroke(); ctx.fillStyle = ax; ctx.fillText(t.toFixed(st < 1 ? (st < .1 ? 2 : 1) : 0) + " s", x, y0 + ph + 8); }
   let edgeY = null;
-  if (edge < fmax) { edgeY = yOf(edge); ctx.strokeStyle = "#f87171"; ctx.lineWidth = 1.4; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(x0, edgeY); ctx.lineTo(x0 + pw, edgeY); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1; }
+  if (edge < fmax) { edgeY = yOf(edge); ctx.strokeStyle = cssVar("--bad"); ctx.lineWidth = 1.4; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(x0, edgeY); ctx.lineTo(x0 + pw, edgeY); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1; }
   if (carrierFound(d) && a.carrier_peak_hz < fmax) {
     const y = yOf(a.carrier_peak_hz); ctx.strokeStyle = "rgba(251,191,36,.9)"; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + pw, y); ctx.stroke();
     let py = y; if (edgeY != null && Math.abs(py - edgeY) < 24) py = edgeY - 24;
-    pill(ctx, `carrier ${(a.carrier_peak_hz / 1000).toFixed(2)} kHz`, x0 + pw - 8, Math.max(y0 + 12, py - 14), "#fbbf24");
+    pill(ctx, `carrier ${(a.carrier_peak_hz / 1000).toFixed(2)} kHz`, x0 + pw - 8, Math.max(y0 + 12, py - 14), cssVar("--warn"));
   }
-  if (edgeY != null) pill(ctx, "18 kHz edge", x0 + pw - 8, Math.min(y0 + ph - 12, edgeY + 14), "#f87171");
+  if (edgeY != null) pill(ctx, "18 kHz edge", x0 + pw - 8, Math.min(y0 + ph - 12, edgeY + 14), cssVar("--bad"));
   const cbx = W - R + 16, cbw = 11, g = ctx.createLinearGradient(0, y0 + ph, 0, y0);
   for (let i = 0; i <= 10; i++) { const v = Math.round(i * 25.5); g.addColorStop(i / 10, `rgb(${LUT[v * 3]},${LUT[v * 3 + 1]},${LUT[v * 3 + 2]})`); }
   ctx.fillStyle = g; roundRect(ctx, cbx, y0, cbw, ph, 4); ctx.fill();
@@ -631,9 +633,9 @@ function drawPSD(d) {
   ctx.beginPath(); fs.forEach((f, i) => i ? ctx.lineTo(X(f), Y(db[i])) : ctx.moveTo(X(f), Y(db[i])));
   ctx.strokeStyle = cssVar("--accent"); ctx.lineWidth = 1.4; ctx.stroke();
   ctx.lineTo(X(fmax), H - B); ctx.lineTo(X(0), H - B); ctx.closePath(); ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = 1;
-  if (edge < fmax) { ctx.strokeStyle = "#f87171"; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(X(edge), T); ctx.lineTo(X(edge), H - B); ctx.stroke(); ctx.setLineDash([]); }
+  if (edge < fmax) { ctx.strokeStyle = cssVar("--bad"); ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(X(edge), T); ctx.lineTo(X(edge), H - B); ctx.stroke(); ctx.setLineDash([]); }
   const fc = carrierFound(d) ? d.annotations.carrier_peak_hz : null;
-  if (fc) { let i = 0; while (i < fs.length - 1 && fs[i] < fc) i++; ctx.fillStyle = "#fbbf24"; ctx.beginPath(); ctx.arc(X(fc), Y(db[i]), 4, 0, 7); ctx.fill(); }
+  if (fc) { let i = 0; while (i < fs.length - 1 && fs[i] < fc) i++; ctx.fillStyle = cssVar("--warn"); ctx.beginPath(); ctx.arc(X(fc), Y(db[i]), 4, 0, 7); ctx.fill(); }
   state.psdGeom = { L, R, W, T, B, H, fmax, fs, db, X, Y };
 }
 $("#psd").addEventListener("mousemove", e => {
@@ -721,7 +723,7 @@ function drawDecisionMap(d) {
   const off = document.createElement("canvas"); off.width = iw; off.height = ih; off.getContext("2d").putImageData(img, 0, 0);
   ctx.drawImage(off, L, T, pw, ph);
   const X = v => L + v * pw, Y = v => T + (1 - v) * ph;
-  [[t.suspicious_risk, "#fbbf24"], [t.high_risk, "#f87171"]].forEach(([Rv, col]) => {
+  [[t.suspicious_risk, cssVar("--warn")], [t.high_risk, cssVar("--bad")]].forEach(([Rv, col]) => {
     ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.beginPath(); let first = true;
     for (let k = 0; k <= 200; k++) { const x = Rv * Rv + (1 - Rv * Rv) * k / 200, y = Rv * Rv / x; if (first) { ctx.moveTo(X(x), Y(y)); first = false; } else ctx.lineTo(X(x), Y(y)); }
     ctx.stroke(); ctx.fillStyle = col; ctx.font = "600 10.5px Helvetica"; ctx.textAlign = "left"; ctx.fillText("R=" + Rv, X(1) - 34, Y(Rv * Rv) - 6); });
@@ -1008,7 +1010,7 @@ function drawWaterfall() {
   const fmax = live.fmax, yOf = f => T + (1 - f / fmax) * ph;
   ctx.font = "10.5px Helvetica"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
   freqTicks(fmax, "lin").forEach(f => { const y = yOf(f); ctx.strokeStyle = "rgba(255,255,255,.07)"; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.stroke(); ctx.fillStyle = ax; ctx.fillText(kHz(f), L - 7, y); });
-  if (fmax > 18000) { const y = yOf(18000); ctx.strokeStyle = "#f87171"; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.stroke(); ctx.setLineDash([]); }
+  if (fmax > 18000) { const y = yOf(18000); ctx.strokeStyle = cssVar("--bad"); ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.stroke(); ctx.setLineDash([]); }
   if (live.sel != null) { const k = live.hist.findIndex(h => h.id === live.sel); if (k >= 0) { const bw = pw / 60, j = 60 - live.hist.length + k;
     ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.strokeRect(L + j * bw + .75, T + .75, bw - 1.5, ph - 1.5); ctx.lineWidth = 1; } }
   ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = ax;
@@ -1054,7 +1056,7 @@ function sortRows(rows, k, dir) { const key = r => k === "verdict" ? (RANK[r.ver
 function sortHeads(sel, st, render) { $$(sel + " th.sortable").forEach(th => th.onclick = () => { const k = th.dataset.k; st.dir = st.sortK === k ? -st.dir : -1; st.sortK = k; render(); }); }
 function markHeads(sel, st) { $$(sel + " th.sortable").forEach(th => { th.querySelector(".arrow")?.remove(); if (th.dataset.k === st.sortK) th.insertAdjacentHTML("beforeend", `<span class="arrow">${st.dir < 0 ? "▼" : "▲"}</span>`); }); }
 function kpiCards(el, items) {
-  el.innerHTML = items.map(([k, v, c, h, fn], i) => `<div class="kpi${fn ? " clickable" : ""}" data-i="${i}" ${fn ? 'title="Open"' : ""}><div class="k">${k}</div><div class="v" style="color:${c}">${v}</div>${h ? `<div class="h">${h}</div>` : ""}</div>`).join("");
+  el.innerHTML = items.map(([k, v, c, h, fn], i) => `<div class="kpi${fn ? " clickable" : ""}" data-i="${i}" ${fn ? 'title="Open"' : ""}><div class="k">${c && c !== "var(--text)" ? `<i class="sd" style="background:${c}"></i>` : ""}${k}</div><div class="v">${v}</div>${h ? `<div class="h">${h}</div>` : ""}</div>`).join("");
   el.querySelectorAll(".kpi.clickable").forEach(k => k.onclick = () => items[+k.dataset.i][4]());
 }
 function historyFiltered(f) { go("history"); $$("#hFilter button").forEach(b => b.classList.toggle("on", b.dataset.f === f)); hist.filter = f; renderHistory(); }
@@ -1224,7 +1226,7 @@ const CLASSES = [
   ["Replay and voice clone", "ASVspoof scope", "Fully in-band speech.", [["anti-spoofing module", ""], ["ASVspoof 2019/2021/5", "ok"]]],
 ];
 $("#classes").innerHTML = CLASSES.map(([t, s, p, chips]) => `<div class="cls"><h4>${t}</h4><div class="faint" style="font-size:12px;margin-bottom:6px">${s}</div><p>${p}</p><div class="row">${chips.map(([c, k]) => `<span class="chip ${k}">${c}</span>`).join("")}</div></div>`).join("");
-const COV = [["No ADC · raw 192 kHz", 100, "#4cc3ff"], ["ADC → 48 kHz", 33, "#fbbf24"], ["ADC → 44.1 kHz", 8, "#fbbf24"], ["ADC → 16 kHz", 0, "#8b9ab3"]];
+const COV = [["No ADC · raw 192 kHz", 100, "--accent"], ["ADC → 48 kHz", 33, "--warn"], ["ADC → 44.1 kHz", 8, "--warn"], ["ADC → 16 kHz", 0, "--na"]];
 const COV_NOTES = [
   "<b>No ADC, raw 192 kHz.</b> The synthetic attack as emitted: carrier and sidebands intact. 12 of 12 flagged. This is the ceiling, not a device.",
   "<b>ADC → 48 kHz.</b> A simulated converter anti-alias filter then resampling to 48 kHz. The carrier above 24 kHz is gone; what remains is the demodulated residue and whatever leaks below Nyquist. 4 of 12 flagged.",
@@ -1237,9 +1239,9 @@ function barChart(c, data, { T = 22, B = 40, L = 36, R = 10, labels = true } = {
   ctx.clearRect(0, 0, W, H); ctx.font = "10.5px Helvetica"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
   [0, 50, 100].forEach(v => { const y = T + (1 - v / 100) * ph; ctx.strokeStyle = gr; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.fillStyle = ax; ctx.fillText(v + "%", L - 6, y); });
   const bw = pw / data.length;
-  data.forEach(([l, v, col], i) => { const x = L + i * bw + bw * .2, w = bw * .6, h = Math.max(2, ph * v / 100), y = T + ph - h;
-    const g = ctx.createLinearGradient(0, y, 0, T + ph); g.addColorStop(0, col); g.addColorStop(1, col + "44"); ctx.fillStyle = g; roundRect(ctx, x, y, w, h, 5); ctx.fill();
-    ctx.fillStyle = TXT(); ctx.font = "600 12px Helvetica"; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(v ? v + "%" : "no verdict", x + w / 2, y - 5);
+  data.forEach(([l, v, col], i) => { const x = L + i * bw + bw * .3, w = bw * .4, h = Math.max(2, ph * v / 100), y = T + ph - h;
+    ctx.fillStyle = col.startsWith("--") ? cssVar(col) : col; roundRect(ctx, x, y, w, h, 2); ctx.fill();
+    ctx.fillStyle = TXT(); ctx.font = "600 11.5px Helvetica"; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(v ? v + "%" : "no verdict", x + w / 2, y - 5);
     if (labels) { ctx.fillStyle = ax; ctx.font = "10.5px Helvetica"; ctx.textBaseline = "top"; ctx.fillText(l, x + w / 2, T + ph + 9); } });
 }
 function drawCoverage() { barChart($("#cbar"), COV); }
@@ -1351,11 +1353,11 @@ function renderExec() {
     ["Engine latency", d.latency_ms ? d.latency_ms.p50.toFixed(0) + "<small>ms</small>" : "—", "var(--text)", d.latency_ms ? `p95 ${d.latency_ms.p95.toFixed(0)} ms` : "no timings"]]);
   $("#exDaySub").textContent = d.by_day.length ? `${d.by_day.length} active day${d.by_day.length === 1 ? "" : "s"}` : "no activity in this period";
   $("#exDayLeg").innerHTML = Object.keys(VERDICT).map(v => `<span><i style="background:${VERDICT[v].hex}"></i>${VERDICT[v].label}</span>`).join("");
-  $("#exMixList").innerHTML = Object.keys(VERDICT).map(v => `<div class="kv"><span><i class="legend" style="margin:0"><i style="background:${VERDICT[v].hex}"></i></i>${VERDICT[v].label}</span><b>${bv[v] || 0} · ${pct(bv[v] || 0, d.total)}</b></div>`).join("");
+  $("#exMixList").innerHTML = Object.keys(VERDICT).map(v => `<div class="kv"><span><i class="sw" style="background:${VERDICT[v].hex}"></i>${VERDICT[v].label}</span><b>${bv[v] || 0} · ${pct(bv[v] || 0, d.total)}</b></div>`).join("");
   const sh = d.assessable_share; $("#exRateNote").textContent = sh == null ? "No captures yet." : `${(sh * 100).toFixed(0)}% of captures were at ≥ 36 kHz and could be assessed.${sh < 1 ? " The rest returned “could not check”." : ""}`;
   $("#exCarNote").textContent = d.carriers_hz.length ? `${d.carriers_hz.length} carrier${d.carriers_hz.length === 1 ? "" : "s"} · ${(d.carriers_hz[0] / 1000).toFixed(1)}–${(d.carriers_hz[d.carriers_hz.length - 1] / 1000).toFixed(1)} kHz` : "No carriers flagged in this period.";
   const g = d.gates, gt = g.allow + g.confirm + g.block;
-  $("#exGates").innerHTML = gt ? `<div class="gbar">${["allow", "confirm", "block"].map(k => `<i class="g-${k}" style="width:${g[k] / gt * 100}%"></i>`).join("")}</div>` + ["allow", "confirm", "block"].map(k => `<div class="kv"><span><span class="cell c-${k}" style="min-width:64px;padding:2px 0">${k}</span></span><b>${g[k]} · ${pct(g[k], gt)}</b></div>`).join("") + `<div class="faint" style="font-size:12px;margin-top:8px">${gt} evaluation${gt === 1 ? "" : "s"} via /api/gate</div>`
+  $("#exGates").innerHTML = gt ? `<div class="gbar">${["allow", "confirm", "block"].map(k => `<i style="width:${g[k] / gt * 100}%;background:var(${GCOL[k]})"></i>`).join("")}</div>` + ["allow", "confirm", "block"].map(k => `<div class="kv"><span><i class="sw" style="background:var(${GCOL[k]})"></i>${k[0].toUpperCase() + k.slice(1)}</span><b>${g[k]} · ${pct(g[k], gt)}</b></div>`).join("") + `<div class="faint" style="font-size:12px;margin-top:8px">${gt} evaluation${gt === 1 ? "" : "s"} via /api/gate</div>`
     : `<div class="empty" style="padding:20px 0"><b>No gate evaluations</b>Agent decisions appear here once /api/gate is used.</div>`;
   $("#exSrcSub").textContent = `${d.clients.length} source${d.clients.length === 1 ? "" : "s"}`;
   $("#exSrcBody").innerHTML = d.clients.length ? d.clients.map(c => `<tr><td><span class="mono">${esc(c.client)}</span></td><td class="n">${c.n}</td><td class="n">${c.flagged}</td><td class="n">${pct(c.flagged, c.n - c.insufficient)}</td><td class="n"${c.insufficient ? ' style="color:var(--na)"' : ""}>${pct(c.insufficient, c.n)}</td><td class="n">${c.peak.toFixed(2)}</td><td class="n faint">${fmtWhen(c.last_ts * 1000)}</td></tr>`).join("")
@@ -1369,6 +1371,7 @@ function renderExec() {
   ].map(([b, t]) => `<div><b>${b}</b>${t}</div>`).join("");
   drawExec();
 }
+const GCOL = { allow: "--ok", confirm: "--warn", block: "--bad" };
 function drawExec() {
   const d = exec.data; if (!d || currentView !== "exec") return;
   const V = Object.keys(VERDICT);
@@ -1378,33 +1381,34 @@ function drawExec() {
     const step = niceStep(max, 4); ctx.font = "10.5px Helvetica"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
     for (let y = 0; y <= max; y += step) { const yy = T + (1 - y / max) * ph; ctx.strokeStyle = gr; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(W - R, yy); ctx.stroke(); ctx.fillStyle = ax; ctx.fillText(y, L - 6, yy); }
     if (!days.length) { ctx.fillStyle = TXT3(); ctx.textAlign = "center"; ctx.font = "12.5px Helvetica"; ctx.fillText("No screenings in this period", L + pw / 2, T + ph / 2); }
-    const bw = Math.min(42, pw / Math.max(days.length, 1) * .7), gap = pw / Math.max(days.length, 1);
+    const bw = Math.min(28, pw / Math.max(days.length, 1) * .5), gap = pw / Math.max(days.length, 1);
     days.forEach((x, i) => { let y0 = T + ph; const cx = L + gap * i + gap / 2;
       V.forEach(v => { const n = x[v] || 0; if (!n) return; const h = n / max * ph; ctx.fillStyle = VERDICT[v].hex; roundRect(ctx, cx - bw / 2, y0 - h, bw, h, 2); ctx.fill(); y0 -= h; });
       if (days.length <= 14 || i % Math.ceil(days.length / 10) === 0) { ctx.fillStyle = ax; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText(x.day.slice(5), cx, T + ph + 7); } }); } }
   // donut
   { const c = $("#exDonut"); if (c.offsetParent) { const { ctx, W, H } = fit(c), cx = W / 2, cy = H / 2, r = Math.min(W, H) / 2 - 4, tot = Math.max(1, d.total); let a = -Math.PI / 2;
-    ctx.clearRect(0, 0, W, H); ctx.lineWidth = 16;
+    ctx.clearRect(0, 0, W, H); ctx.lineWidth = 10;
     if (!d.total) { ctx.strokeStyle = cssVar("--track"); ctx.beginPath(); ctx.arc(cx, cy, r - 8, 0, 7); ctx.stroke(); }
-    V.forEach(v => { const n = d.by_verdict[v] || 0; if (!n) return; const b = a + n / tot * 2 * Math.PI; ctx.strokeStyle = VERDICT[v].hex; ctx.beginPath(); ctx.arc(cx, cy, r - 8, a + .02, b - .02); ctx.stroke(); a = b; });
+    V.forEach(v => { const n = d.by_verdict[v] || 0; if (!n) return; const b = a + n / tot * 2 * Math.PI; ctx.strokeStyle = VERDICT[v].hex; ctx.beginPath(); ctx.arc(cx, cy, r - 8, a + .015, b - .015); ctx.stroke(); a = b; });
     ctx.fillStyle = TXT(); ctx.font = "600 22px Helvetica"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(d.total, cx, cy - 6);
     ctx.fillStyle = TXT3(); ctx.font = "10.5px Helvetica"; ctx.fillText("screenings", cx, cy + 12); } }
   // sample rates
-  { const c = $("#exRates"); if (c.offsetParent) barChart(c, d.rates.map(x => [(x.sr / 1000).toFixed(1) + " kHz", d.total ? Math.round(x.n / d.total * 100) : 0, x.sr >= 36000 ? "#34d399" : "#8b9ab3"]).slice(0, 6), { T: 18, B: 24, L: 34 }); }
+  { const c = $("#exRates"); if (c.offsetParent) barChart(c, d.rates.map(x => [(x.sr / 1000).toFixed(1) + " kHz", d.total ? Math.round(x.n / d.total * 100) : 0, x.sr >= 36000 ? "--ok" : "--na"]).slice(0, 6), { T: 18, B: 24, L: 34 }); }
   // carrier histogram, 2 kHz bins from 15 kHz
   { const c = $("#exCar"); if (c.offsetParent) { const bins = {}; d.carriers_hz.forEach(f => { const k = Math.floor(f / 2000) * 2; bins[k] = (bins[k] || 0) + 1; });
-    const ks = Object.keys(bins).map(Number).sort((a, b) => a - b), data = ks.map(k => [`${k}–${k + 2}k`, bins[k], "#fbbf24"]);
+    const ks = Object.keys(bins).map(Number).sort((a, b) => a - b), data = ks.map(k => [`${k}–${k + 2}k`, bins[k], cssVar("--warn")]);
     const { ctx, W, H } = fit(c), L = 28, R = 8, T = 16, B = 24, pw = W - L - R, ph = H - T - B, ax = AX(), gr = GRID(); ctx.clearRect(0, 0, W, H);
     if (!data.length) { ctx.fillStyle = TXT3(); ctx.font = "12.5px Helvetica"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("No carriers flagged", L + pw / 2, T + ph / 2); }
     else { const max = Math.max(...data.map(x => x[1])), bw = pw / data.length; ctx.font = "10.5px Helvetica";
       [0, max].forEach(v => { const y = T + (1 - v / max) * ph; ctx.strokeStyle = gr; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.fillStyle = ax; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(v, L - 5, y); });
-      data.forEach(([l, n, col], i) => { const x = L + i * bw + bw * .18, w = bw * .64, h = Math.max(2, ph * n / max); ctx.fillStyle = col; roundRect(ctx, x, T + ph - h, w, h, 3); ctx.fill();
+      data.forEach(([l, n, col], i) => { const x = L + i * bw + bw * .3, w = bw * .4, h = Math.max(2, ph * n / max); ctx.fillStyle = col; roundRect(ctx, x, T + ph - h, w, h, 2); ctx.fill();
         ctx.fillStyle = TXT(); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.font = "600 11px Helvetica"; ctx.fillText(n, x + w / 2, T + ph - h - 3);
         ctx.fillStyle = ax; ctx.font = "10px Helvetica"; ctx.textBaseline = "top"; ctx.fillText(l, x + w / 2, T + ph + 7); }); } } }
 }
 
 /* ============================================================ trust gate view */
 const trust = { blob: null, name: null, wake: null, wakeName: null, enrol: [], rec: null, which: null, last: null, profiles: [] };
+const CHECK_NAMES = { signal_integrity: "Signal integrity", speaker_verification: "Speaker match", anti_spoofing: "Liveness", same_speaker: "Same speaker", content_safety: "Content safety", transcript_consistency: "Transcript consistency", reverb_consistency: "Room consistency" };
 const LAYER_NAMES = { L1: "Signal integrity", L2: "Speaker identity", L3: "Source attribution", L4: "Content safety" };
 const DEC_NEXT = { allow: "Execute the action.", confirm: "Ask the user to confirm through a channel the attacker cannot reach — a screen tap, a second device, a passphrase — and execute only on a yes.", block: "Refuse the action, do not reveal what was detected, and keep the audit record." };
 async function trustEnter() { await trustProfiles(); renderScenarios(); }
@@ -1457,11 +1461,15 @@ async function trustEvaluate(opts = {}) {
 $("#tRun").onclick = () => trustEvaluate();
 function renderTrust(d) {
   const dec = d.decision, lvl = d.level, t = d.trust;
-  $("#tResSub").innerHTML = `${d.elapsed_ms} ms · <span class="lvl ${lvl}">${lvl}</span>`;
-  $("#tResBody").innerHTML = `<div class="decision"><div class="big g-${dec}">${dec.toUpperCase()}</div><div><h2>${esc(headline(d))}</h2><p>${esc(d.reason)}</p><div class="next"><b>Next step.</b> ${esc(DEC_NEXT[dec])}</div></div></div>`;
+  $("#tResSub").textContent = `${t.required_layers.length} required layer${t.required_layers.length === 1 ? "" : "s"} · ${d.elapsed_ms >= 1000 ? (d.elapsed_ms / 1000).toFixed(1) + " s" : Math.round(d.elapsed_ms) + " ms"}`;
+  $("#tResBody").innerHTML = `<div class="decision d-${dec}"><div class="body"><div class="top"><span class="big g-${dec}">${dec.toUpperCase()}</span><span class="lvl ${lvl}">${lvl}</span><span class="meta">overall trust ${t.overall == null ? "—" : t.overall.toFixed(2)}</span></div><h2>${esc(headline(d))}</h2><p>${esc(d.reason)}</p><div class="next"><b>Next step.</b> ${esc(DEC_NEXT[dec])}</div></div></div>`;
   const sig = t.signals, order = ["L1", "L2", "L3", "L4"];
-  $("#tTupleSub").textContent = `overall ${t.overall == null ? "—" : t.overall.toFixed(2)} · required ${t.required_layers.join(", ")}`;
-  $("#tLayers").innerHTML = order.flatMap(L => sig.filter(s => s.layer === L)).map(s => `<div class="layer ${s.band}"><div class="k"><span>${s.layer} · ${LAYER_NAMES[s.layer]}</span><b>${s.trust == null ? "—" : s.trust.toFixed(2)}</b></div><div class="v"><span class="lvl ${s.band === "clean" ? "trusted" : s.band === "unassessed" ? "unverified" : s.band}" style="margin-right:6px">${s.band}</span>${esc(s.detail)}</div>${evidenceLine(s)}</div>`).join("");
+  $("#tTupleSub").textContent = `${sig.filter(s => s.assessable).length} of ${sig.length} assessed · required ${t.required_layers.join(", ")}`;
+  const bandCol = b => b === "clean" ? "var(--ok)" : b === "suspect" ? "var(--warn)" : b === "hostile" ? "var(--bad)" : "var(--na)";
+  const bandLvl = b => b === "clean" ? "trusted" : b === "unassessed" ? "unverified" : b;
+  $("#tLayersEmpty").classList.add("hidden");
+  $("#tLayers").innerHTML = `<div class="lrow head"><span>Check</span><span>Result</span><span>Detail</span><span style="text-align:right">Trust</span></div>` +
+    order.flatMap(L => sig.filter(s => s.layer === L)).map(s => `<div class="lrow ${s.band}"><div class="nm"><b>${esc(CHECK_NAMES[s.name] || LAYER_NAMES[s.layer])}</b><span>${s.layer} · ${esc(LAYER_NAMES[s.layer])}</span></div><div class="st"><span class="lvl ${bandLvl(s.band)}">${s.band === "unassessed" ? "not run" : s.band}</span></div><div class="dt">${esc(s.detail)}${evidenceLine(s)}</div><div class="sc">${s.trust == null ? '<span class="faint">—</span>' : `<i><u style="width:${s.trust * 100}%;background:${bandCol(s.band)}"></u></i>${s.trust.toFixed(2)}`}</div></div>`).join("");
 }
 function headline(d) { const l = d.level; return l === "trusted" ? "Command is consistent with the enrolled, present user" : l === "unverified" ? "Could not fully verify who gave this command" : l === "suspect" ? "Something about this command does not add up" : "This command is not the user's"; }
 function evidenceLine(s) {
@@ -1482,7 +1490,7 @@ const SCENARIOS = [
   { id: "phone", t: "16 kHz phone capture", s: "the phone sample · “pay the invoice”", exp: "confirm — L1 could not check", demo: "phone", transcript: "pay the invoice", action: "critical" },
 ];
 function renderScenarios() {
-  $("#tScenarios").innerHTML = `<div class="faint" style="font-size:12px;margin-bottom:4px">The samples are synthesised voices, so the anti-spoofing check rightly marks them suspect. Record your own command for a live-voice run.</div>` + SCENARIOS.map(s => `<div class="scenario" data-id="${s.id}"><div><b>${s.t}</b><span>${s.s}</span></div><span class="exp faint">expect ${s.exp}</span></div>`).join("");
+  $("#tScenarios").innerHTML = `<div class="note">The samples are synthesised voices, so the anti-spoofing check rightly marks them suspect. Record your own command for a live-voice run.</div>` + SCENARIOS.map(s => `<div class="scenario" data-id="${s.id}"><div><b>${s.t}</b><span>${s.s}</span></div><span class="exp">expect ${s.exp}</span></div>`).join("");
   $$("#tScenarios .scenario").forEach(el => el.onclick = () => runScenario(el.dataset.id));
 }
 async function runScenario(id) {
@@ -1507,10 +1515,11 @@ $$(".copy").forEach(b => b.onclick = e => { e.stopPropagation(); const txt = b.p
 $("#searchBtn").innerHTML = icon("search") + "<span>Search or jump to…</span><span class=\"kbd\">⌘K</span>";
 $("#moreBtn").innerHTML = icon("more");
 (async function boot() {
+  $("#wsName").innerHTML = `${icon("monitor")}${esc(location.hostname === "127.0.0.1" || location.hostname === "localhost" || !location.hostname ? "Local workspace" : location.host)}`;
   mountNav(); fillIcons(); mountHelp(); applyTheme(); applyRail();
   await Promise.all([health(), loadHistory()]);
   resetLive(); renderBatch();
-  const want = location.hash.replace("#", "") || "overview";
+  const want = location.hash.replace("#", "") || "exec";
   go(VIEW_NAMES[want] ? want : "overview", { silent: true });
   initSamples();
   setInterval(health, 30000);
