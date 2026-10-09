@@ -127,6 +127,20 @@ uvicorn app.server:app --reload        # http://127.0.0.1:8000
 Every page explains itself (ⓘ on each section), and a 16 kHz capture is reported as
 "could not check", never as clean.
 
+### Trust layer (speaker, source and content checks + the gate as a tool call)
+
+`echoguard.trust` extends the gate from one verdict to a trust tuple: L1 signal
+integrity (EchoGuard), L2 speaker identity (ECAPA embeddings against an enrolled
+profile), L3 source attribution (wake word and command from the same voice), L4
+content safety (spoken-injection patterns, decoder agreement). A layer that
+cannot assess says so and the gate treats it as *unverified*, never safe.
+`TOOL_SCHEMA` / `handle_tool_call` expose it as a function an LLM agent calls
+before acting. See [`docs/trust_layer.md`](docs/trust_layer.md).
+
+```bash
+pip install -e ".[trust]"      # torch + speechbrain for L2/L3; L1 and L4 work without
+```
+
 ### Try it on sample fixtures
 
 ```bash
@@ -195,6 +209,8 @@ This is a **baseline screen**, and it is honest about what it is not:
 - [x] Assess [AdvSV](https://advsv.github.io/) — out of scope (16 kHz, in-band, gated; `docs/threat_model.md`). ASVspoof stays the anti-spoofing corpus
 - [x] Reference integration for an action-taking voice agent's confirmation step (`echoguard.gate`, `docs/confirmation_gate.md`)
 - [x] Web console, HTTP API and executive dashboard over the engine (`app/`, `app/README.md`)
+- [x] Trust layer: speaker, source and content checks with the gate as an agent tool call (`echoguard.trust`, `docs/trust_layer.md`)
+- [ ] Liveness / anti-spoofing check in L2; multi-microphone direction of arrival in L3; learned spoken-injection model for L4 — on the Phase 0 corpus
 
 ## Scope across attack classes
 

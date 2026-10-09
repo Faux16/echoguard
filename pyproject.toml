@@ -29,6 +29,7 @@ spoof = ["scikit-learn>=1.1,<2"]
 bench = ["scikit-learn>=1.1,<2", "soundfile>=0.12", "pandas>=1.5", "huggingface_hub>=0.20", "datasets>=2.14"]
 capture = ["sounddevice>=0.4"]
 webui = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "python-multipart>=0.0.9"]
+trust = ["torch>=2.2", "torchaudio>=2.2", "speechbrain>=1.0"]
 dev = ["pytest>=7.0", "ruff>=0.4", "mypy>=1.8", "scikit-learn>=1.1,<2",
        "fastapi>=0.110", "httpx>=0.27", "python-multipart>=0.0.9"]
 
