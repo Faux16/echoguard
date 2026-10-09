@@ -22,13 +22,14 @@ from .checks.signal_integrity import SignalIntegrityCheck
 from .checks.content import ContentSafetyCheck, TranscriptConsistencyCheck
 from .checks.speaker import SpeakerVerificationCheck, SameSpeakerCheck, SpeakerProfile
 from .checks.liveness import AntiSpoofCheck
+from .checks.reverb import ReverbConsistencyCheck
 from .gate import TrustGate, TrustResult, DEFAULT_TRUST_POLICY, default_checks
 from .tool import TOOL_SCHEMA, handle_tool_call
 
 __all__ = [
     "Layer", "TrustSignal", "TrustContext", "TrustScore", "TrustLevel", "Check",
     "SignalIntegrityCheck", "ContentSafetyCheck", "TranscriptConsistencyCheck",
-    "SpeakerVerificationCheck", "SameSpeakerCheck", "SpeakerProfile", "AntiSpoofCheck",
+    "SpeakerVerificationCheck", "SameSpeakerCheck", "SpeakerProfile", "AntiSpoofCheck", "ReverbConsistencyCheck",
     "TrustGate", "TrustResult", "DEFAULT_TRUST_POLICY", "default_checks",
     "TOOL_SCHEMA", "handle_tool_call",
 ]

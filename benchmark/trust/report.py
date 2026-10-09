@@ -78,6 +78,19 @@ def main() -> None:
         L.append("| Attack | n | Missed at EER threshold | Accepted at default mapping | Mean logit |\n| --- | ---: | ---: | ---: | ---: |")
         L.extend(f"| {k} | {v['n']} | {pct(v['miss_rate_at_eer'])} | {pct(v['accepted_at_default'])} | {v['mean_logit']:.2f} |" for k, v in spf["per_attack"].items())
         L.append("\nA07–A19 are the evaluation attacks, unseen in the model's training protocol; the per-attack column shows which synthesis families still get through.\n")
+    sc = json.load(open(os.path.join(RES, "scenarios.json"), encoding="utf-8")) if os.path.exists(os.path.join(RES, "scenarios.json")) else None
+    if sc:
+        h, smoke = sc["headline"], "smoke" in sc["corpus"].lower()
+        L.append(f"## End to end — T1–T6 scenario runner on {'the SMOKE corpus (public proxies; plumbing only)' if smoke else os.path.basename(sc['corpus'])}\n")
+        L.append(f"{sc['summary']['trials']} command trials · users {', '.join(sc['summary']['users'])} · checks {', '.join(sc['checks'])} · required {sc['required_layers']} · speaker model {'loaded' if sc['speaker_model'] else 'absent'} · {sc['elapsed_s']} s.\n")
+        L.append(f"**Unauthorised actions executed: {h['unauthorised_actions_executed']} of {h['attack_trials']} attack trials ({pct(h['unauthorised_rate'])}).** Needless confirmations or blocks: {h['needless_confirm_or_block']} of {h['benign_trials']} benign trials ({pct(h['needless_rate'])}).\n")
+        L.append("| Class | Trials | allow | confirm | block | Caught by |\n| --- | ---: | ---: | ---: | ---: | --- |")
+        for k, v in sc["by_class"].items():
+            L.append(f"| {k} {v['label']} | {v['n']} | {v['allow']} | {v['confirm']} | {v['block']} | {', '.join(f'{c} ×{n}' for c, n in sorted(v['caught_by'].items(), key=lambda x: -x[1])) or '—'} |")
+        if sc["executed_examples"]:
+            L.append("\nAttack trials that were executed: " + "; ".join(f"{e['file']} ({e['class']}, {e['condition']}, {e['sensitivity']})" for e in sc["executed_examples"][:8]) + ".")
+        if smoke:
+            L.append("\nThe smoke corpus exists to prove the loader and runner before any device recording exists; its attacks are the synthesiser's pre-filter injection, LibriSpeech third parties and macOS TTS, so the counts say nothing about field performance.\n")
     L.append("\n## Reading these numbers\n")
     L.append("- L2/L3 are on clean read speech with a strong pretrained model; a kitchen, a phone microphone and a loudspeaker will all make them worse. The EER thresholds here are the starting point for the defaults, not the final values.")
     L.append("- L3 uses a 1 s wake segment on purpose: that is what a real wake word gives the embedder, and it is the hard case.")
