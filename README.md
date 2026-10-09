@@ -23,10 +23,11 @@ Each detector returns a risk in `[0, 1]` with the numbers behind its decision. T
 ## Install
 
 ```bash
-pip install -e .
+pip install -e .            # engine + CLI
+pip install -e ".[webui]"   # + the web console and HTTP API
 ```
 
-Requires Python 3.9+, numpy, scipy.
+Requires Python 3.9+, numpy, scipy (FastAPI and uvicorn for the console).
 
 ## Usage
 
@@ -101,6 +102,31 @@ Detectors:
       99% of energy extends up to 20.0 kHz - inconsistent with a live speaker.
 ```
 
+### Web console and API
+
+The same engine behind a browser workstation and an HTTP API (`app/`, see
+[`app/README.md`](app/README.md)). Nothing is reimplemented in the browser: every
+number, meter threshold and verdict sentence comes from the detector's output.
+
+```bash
+uvicorn app.server:app --reload        # http://127.0.0.1:8000
+```
+
+- **Analyze** — drop a WAV, record, or try a sample: verdict narrative, score against the
+  0.33 / 0.66 thresholds, spectrogram with zoom, detection meters drawn against the engine's
+  own constants, decision map, per-window inspection, export as JSON / HTML report.
+- **Live monitor**, **Batch**, **History** (kept in the browser), **Compare**.
+- **Gate policies** — edit the verdict × action-class matrix, dry-run it, and it is sent with
+  every `/api/gate` call.
+- **Executive** — fleet-level report over retained captures: screenings per day, verdict mix,
+  flag rate, capture quality, carrier histogram, gate decisions, per-source table.
+- `POST /api/scan`, `POST /api/gate`, `GET /api/health`, `GET /api/fleet`; set
+  `ECHOGUARD_CAPTURE_DIR` to retain uploads for a field test and summarise them with
+  `python -m app.review_captures`.
+
+Every page explains itself (ⓘ on each section), and a 16 kHz capture is reported as
+"could not check", never as clean.
+
 ### Try it on sample fixtures
 
 ```bash
@@ -168,6 +194,7 @@ This is a **baseline screen**, and it is honest about what it is not:
 - [x] Threat-model coverage matrix across the 11 attack classes (`docs/threat_model.md`)
 - [x] Assess [AdvSV](https://advsv.github.io/) — out of scope (16 kHz, in-band, gated; `docs/threat_model.md`). ASVspoof stays the anti-spoofing corpus
 - [x] Reference integration for an action-taking voice agent's confirmation step (`echoguard.gate`, `docs/confirmation_gate.md`)
+- [x] Web console, HTTP API and executive dashboard over the engine (`app/`, `app/README.md`)
 
 ## Scope across attack classes
 
