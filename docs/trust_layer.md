@@ -71,6 +71,18 @@ Drop a layer from `required_layers` if you cannot provide it (no enrolment →
 clean L1 + L4 alone. Add your own check by subclassing `Check` and returning
 `self.signal(...)` or `self.unassessable(...)`.
 
+## The corpus runner
+
+`benchmark/trust/run_scenarios.py` takes a matched-device corpus in the manifest
+format of `docs/corpus_manifest.md`, enrols each user, runs the full gate on every
+command with its wake word and the owner's profile, and reports the two numbers an
+integrator needs — unauthorised actions executed, needless confirmations or
+blocks — per threat class T1–T6, with the check that caught each attack.
+`--reverb` adds the experimental `ReverbConsistencyCheck` (Λ = T60(wake) −
+T60(command); paper §VIII), which is not in `default_checks()` until the corpus
+calibrates its estimator. `benchmark/trust/corpus/make_smoke.py` builds a
+public-proxy corpus in the same format so the whole path runs today.
+
 ## Status and calibration
 
 - L1 is the benchmarked EchoGuard detector (see `BENCHMARK_REPORT.md`).

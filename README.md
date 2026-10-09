@@ -211,6 +211,7 @@ This is a **baseline screen**, and it is honest about what it is not:
 - [x] Web console, HTTP API and executive dashboard over the engine (`app/`, `app/README.md`)
 - [x] Trust layer: speaker, source and content checks with the gate as an agent tool call (`echoguard.trust`, `docs/trust_layer.md`)
 - [x] Anti-spoofing in L2 (Spectra-AASIST, calibrated on ASVspoof2019 LA) and a spoken-injection seed corpus for L4 (`benchmark/trust/`)
+- [x] Matched-device corpus manifest, loader and T1–T6 scenario runner (`benchmark/trust/run_scenarios.py`, `docs/corpus_manifest.md`); experimental reverberation-consistency check
 - [ ] Multi-microphone direction of arrival in L3; learned spoken-injection model for L4; replay (physical-access) detection — on the Phase 0 corpus
 
 ## Scope across attack classes

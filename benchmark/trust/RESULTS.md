@@ -94,6 +94,23 @@ At the check's trust mapping (accept at logit ≥ 1.01, reject below -0.47): spo
 
 A07–A19 are the evaluation attacks, unseen in the model's training protocol; the per-attack column shows which synthesis families still get through.
 
+## End to end — T1–T6 scenario runner on the SMOKE corpus (public proxies; plumbing only)
+
+99 command trials · users 1272, 2428, 5895 · checks signal_integrity, speaker_verification, anti_spoofing, same_speaker, content_safety, transcript_consistency, reverb_consistency · required L1,L2,L4 · speaker model loaded · 73.0 s.
+
+**Unauthorised actions executed: 0 of 81 attack trials (0.0 %).** Needless confirmations or blocks: 4 of 18 benign trials (22.2 %).
+
+| Class | Trials | allow | confirm | block | Caught by |
+| --- | ---: | ---: | ---: | ---: | --- |
+| BENIGN genuine user, ordinary command | 18 | 9 | 7 | 2 | anti_spoofing ×2, same_speaker ×2 |
+| T1 inaudible injection | 18 | 0 | 0 | 18 | signal_integrity ×18 |
+| T3 third-party speech / playback of another voice | 18 | 0 | 0 | 18 | speaker_verification ×15, same_speaker ×3 |
+| T4 impersonation (replay or clone of the user) | 18 | 0 | 0 | 18 | speaker_verification ×15, anti_spoofing ×3 |
+| T5 adversarial transcription | 9 | 0 | 0 | 9 | transcript_consistency ×9 |
+| T6 spoken prompt injection | 18 | 0 | 0 | 18 | content_safety ×18 |
+
+The smoke corpus exists to prove the loader and runner before any device recording exists; its attacks are the synthesiser's pre-filter injection, LibriSpeech third parties and macOS TTS, so the counts say nothing about field performance.
+
 
 ## Reading these numbers
 
