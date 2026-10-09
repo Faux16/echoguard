@@ -26,8 +26,19 @@ def librispeech(root: str) -> dict[str, list[str]]:
 
 
 def read_audio(path: str, max_sec: Optional[float] = None) -> tuple[np.ndarray, int]:
-    import soundfile as sf
-    x, sr = sf.read(path, dtype="float32", always_2d=False)
+    """Mono float32 audio. soundfile (bench extra) handles FLAC etc.; plain WAV falls back to scipy."""
+    try:
+        import soundfile as sf
+        x, sr = sf.read(path, dtype="float32", always_2d=False)
+    except ImportError:
+        if not path.lower().endswith(".wav"):
+            raise
+        from scipy.io import wavfile
+        sr, raw = wavfile.read(path)
+        if np.issubdtype(raw.dtype, np.integer):
+            x = raw.astype(np.float32) / float(np.iinfo(raw.dtype).max)
+        else:
+            x = raw.astype(np.float32)
     if x.ndim > 1:
         x = x.mean(axis=1)
     if max_sec:
