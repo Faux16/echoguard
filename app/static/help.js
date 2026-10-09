@@ -14,6 +14,14 @@ const HELP = {
   "recent flagged captures": { t: "Recent flagged captures", d: "The latest suspicious and high-risk results with the carrier that triggered them.", r: "Files are in the server's capture directory; the same names appear in app.review_captures." },
   "reading this report": { t: "Reading this report", d: "The caveats that belong next to the numbers.", r: "" },
 
+  // trust gate
+  "page:trust": { t: "Trust gate", d: "Decides whether a voice agent should act on a command: is the audio physically genuine (L1), is it the enrolled live user (L2), did the wake word and the command come from the same voice (L3), is the content a spoken injection (L4)?", r: "Each check returns a trust band; the gate combines them with the action's sensitivity into allow, confirm or block. A check that could not run makes the command unverified — never safe." },
+  "command": { t: "Command", d: "The audio the agent heard and the transcript its recogniser produced. The sensitivity is how costly a wrong action would be.", r: "The wake-word segment enables the same-voice check; a second transcript enables the consistency check. Required layers decide which checks must have run for the command to count as trusted." },
+  "enrolled speaker": { t: "Enrolled speaker", d: "A voice profile — the mean of a few utterance embeddings — for the person the agent should obey.", r: "Three natural sentences of about two seconds each are enough. Profiles are stored on the server under its profiles directory, never in the audio." },
+  "decision": { t: "Decision", d: "allow: execute. confirm: ask the user through a channel the attacker cannot reach, then execute only on a yes. block: refuse and record.", r: "The reason names the weakest check. The level is the whole tuple's summary: trusted, unverified, suspect or hostile." },
+  "trust tuple": { t: "Trust tuple", d: "One card per check with its band (clean, suspect, hostile, or unassessed) and the measured value behind it.", r: "Bands share one scale: below 0.34 is hostile, below 0.67 suspect. Unassessed means the check lacked an input or its model; the gate treats that as unverified." },
+  "demo scenarios": { t: "Demo scenarios", d: "Pre-built commands that exercise each layer, scored by the real engine when you click them.", r: "Enrol your own voice, then record a command — and have someone else record one — to see the speaker checks decide." },
+
   // pages
   "page:overview": { t: "Overview", d: "A summary of everything analysed in this browser and the state of the engine behind the console.", r: "Click a KPI to open History filtered to it. Click a bar in the trend to open that capture." },
   "page:analyze": { t: "Analyze", d: "Screens one recording for an inaudible (ultrasonic) voice-command injection and explains the decision.", r: "Drop a WAV at 44.1 kHz or higher. Every number comes from the detector; the browser only draws." },

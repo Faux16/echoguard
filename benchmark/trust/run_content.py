@@ -49,6 +49,8 @@ def main() -> None:
     ap.add_argument("--deepset", required=True)
     ap.add_argument("--slurp", required=True)
     ap.add_argument("--tts", type=int, default=0, help="render this many injections and this many benign commands")
+    ap.add_argument("--corpus", action="store_true", help="also evaluate the spoken-injection seed corpus (text and TTS)")
+    ap.add_argument("--corpus-tts", type=int, default=160, help="how many corpus utterances to render per class")
     ap.add_argument("--tts-dir", default=os.path.join(HERE, "results", "tts"))
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=os.path.join(HERE, "results", "content.json"))
@@ -86,6 +88,31 @@ def main() -> None:
             "examples": [{"ref": it["text"][:120], "asr": it["asr"][:120], "voice": it["voice"], "trust": s["trust"]}
                          for it, s in list(zip(pos, pos_s))[:8]],
         }
+    if a.corpus:
+        from .corpus import benign as corpus_benign, injections as corpus_injections, seed_count
+        cinj, call = corpus_injections(), corpus_benign()
+        cben, camb = [r for r in call if r["kind"] != "ambiguous"], [r for r in call if r["kind"] == "ambiguous"]
+        pos_s, neg_s = score(check, [r["text"] for r in cinj]), score(check, [r["text"] for r in cben])
+        amb_s = score(check, [r["text"] for r in camb])
+        by_family: dict = {}
+        for r, sc_ in zip(cinj, pos_s):
+            f = by_family.setdefault(r["family"], {"n": 0, "detected": 0})
+            f["n"] += 1; f["detected"] += sc_["flagged"]
+        corpus: dict = {"seeds": seed_count(), "utterances": len(cinj), "benign": len(cben), "ambiguous": len(camb),
+                        "text_level": summarise(pos_s, neg_s),
+                        "ambiguous_flagged_as_suspect": sum(r["flagged"] and (r["trust"] or 0) >= 0.34 for r in amb_s),
+                        "ambiguous_flagged_as_hostile": sum(r["flagged"] and (r["trust"] or 0) < 0.34 for r in amb_s),
+                        "by_family": {k: {**v, "rate": round(v["detected"] / v["n"], 3)} for k, v in sorted(by_family.items())}}
+        if a.corpus_tts:
+            cp = rng.sample(cinj, min(a.corpus_tts, len(cinj)))
+            cn = cben if len(cben) <= a.corpus_tts else rng.sample(cben, a.corpus_tts)
+            cpr = transcribe_all(render_tts([r["text"] for r in cp], os.path.join(a.tts_dir, "corpus_inj")), os.path.join(a.tts_dir, "asr.json"))
+            cnr = transcribe_all(render_tts([r["text"] for r in cn], os.path.join(a.tts_dir, "corpus_ben")), os.path.join(a.tts_dir, "asr.json"))
+            ps, ns = score(check, [it["asr"] for it in cpr]), score(check, [it["asr"] for it in cnr])
+            wers = [_wer(normalise(it["text"]).split(), normalise(it["asr"]).split()) for it in cpr + cnr]
+            corpus["spoken_level"] = {"rendered": {"injections": len(cpr), "benign": len(cnr)}, "asr": "faster-whisper base.en",
+                                      "mean_wer_vs_reference": round(sum(wers) / len(wers), 4), **summarise(ps, ns)}
+        out["corpus"] = corpus
     out["elapsed_s"] = round(time.time() - t0, 1)
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as fh:

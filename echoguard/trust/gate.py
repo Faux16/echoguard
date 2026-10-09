@@ -15,6 +15,7 @@ from typing import Optional
 from ..gate import ActionSensitivity, GateDecision
 from .checks.base import Check
 from .checks.content import ContentSafetyCheck, TranscriptConsistencyCheck
+from .checks.liveness import AntiSpoofCheck
 from .checks.signal_integrity import SignalIntegrityCheck
 from .checks.speaker import SameSpeakerCheck, SpeakerVerificationCheck
 from .signals import Layer, TrustContext, TrustLevel, TrustScore, TrustSignal
@@ -53,7 +54,7 @@ _DECISION_VERB = {
 
 
 def default_checks() -> list[Check]:
-    return [SignalIntegrityCheck(), SpeakerVerificationCheck(), SameSpeakerCheck(),
+    return [SignalIntegrityCheck(), SpeakerVerificationCheck(), AntiSpoofCheck(), SameSpeakerCheck(),
             ContentSafetyCheck(), TranscriptConsistencyCheck()]
 
 

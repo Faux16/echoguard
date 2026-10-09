@@ -39,6 +39,9 @@ from echoguard.detectors import ultrasonic as _oob
 from echoguard.detectors.ultrasonic import NEAR_ULTRASOUND_LOW
 from echoguard.gate import DEFAULT_POLICY, ActionSensitivity, GateDecision
 from echoguard.pipeline import HIGH_RISK_RISK, INSUFFICIENT_DATA, SUSPICIOUS_RISK, VERDICTS, InvalidInput
+from echoguard.trust import Layer, SpeakerProfile, TrustContext, TrustGate, default_checks
+from echoguard.trust.checks.liveness import SpoofScorer
+from echoguard.trust.checks.speaker import Embedder
 
 # The engine's own constants, so the UI's meters show real thresholds rather than guesses.
 THRESHOLDS = {
@@ -56,6 +59,7 @@ THRESHOLDS = {
 }
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+PROFILES_DIR = os.environ.get("ECHOGUARD_PROFILES_DIR") or os.path.join(os.path.expanduser("~"), ".cache", "echoguard", "profiles")
 STATIC = os.path.join(HERE, "static")
 # Opt-in retention for field testing: when set, every upload and its result are written
 # here. Off by default (stateless); the UI tells users when it is on.
@@ -368,6 +372,122 @@ async def fleet(days: int = 30) -> dict:
     }
 
 
+# ---------------------------------------------------------------- trust layer
+
+_trust_gate = TrustGate()
+
+
+def _profile_path(pid: str) -> str:
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", pid)[:64]
+    return os.path.join(PROFILES_DIR, safe + ".json")
+
+
+def _list_profiles() -> list[dict]:
+    if not os.path.isdir(PROFILES_DIR):
+        return []
+    out = []
+    for n in sorted(os.listdir(PROFILES_DIR)):
+        if n.endswith(".json"):
+            try:
+                p = SpeakerProfile.load(os.path.join(PROFILES_DIR, n))
+                out.append({"id": n[:-5], "name": p.name, "utterances": p.n_utterances, "meta": p.meta})
+            except (OSError, ValueError, KeyError):
+                continue
+    return out
+
+
+def _trust_models() -> dict:
+    """Which optional models are loaded right now (never triggers a load)."""
+    return {"speaker_embedder": Embedder.shared()._enc is not None,
+            "anti_spoofing": SpoofScorer.shared()._model is not None}
+
+
+@app.get("/api/profiles")
+async def api_profiles() -> dict:
+    return {"profiles": _list_profiles(), "models": _trust_models()}
+
+
+@app.post("/api/enrol")
+async def api_enrol(request: Request, name: str = Form(...), files: list[UploadFile] = File(...)) -> JSONResponse:
+    """Enrol a speaker from one or more WAVs; returns the profile id."""
+    if not name.strip():
+        raise HTTPException(422, "name is required")
+    emb = Embedder.shared()
+    if not emb.available:
+        raise HTTPException(503, emb.error or "speech model unavailable")
+    utts = []
+    for f in files:
+        sig, sr, _ = _read_upload(f)
+        if len(sig) < 0.8 * sr:
+            raise HTTPException(400, f"{f.filename}: enrolment utterances must be at least 0.8 s")
+        utts.append((sig, sr))
+    profile = SpeakerProfile.enrol(name.strip(), utts, embedder=emb)
+    profile.meta = {"enrolled_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    "client": request.client.host if request.client else "unknown"}
+    pid = re.sub(r"[^A-Za-z0-9._-]+", "_", name.strip().lower())[:40] + "_" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    os.makedirs(PROFILES_DIR, exist_ok=True)
+    profile.save(_profile_path(pid))
+    return JSONResponse({"id": pid, "name": profile.name, "utterances": profile.n_utterances})
+
+
+@app.delete("/api/profiles/{pid}")
+async def api_profile_delete(pid: str) -> dict:
+    path = _profile_path(pid)
+    if not os.path.exists(path):
+        raise HTTPException(404, "no such profile")
+    os.remove(path)
+    return {"deleted": pid}
+
+
+@app.post("/api/trust")
+async def api_trust(request: Request,
+                    file: UploadFile = File(...),
+                    action: str = Form(...),
+                    transcript: Optional[str] = Form(None),
+                    alt_transcript: Optional[str] = Form(None),
+                    wake: Optional[UploadFile] = File(None),
+                    profile_id: Optional[str] = Form(None),
+                    command: Optional[str] = Form(None),
+                    required_layers: Optional[str] = Form(None)) -> JSONResponse:
+    """Run every trust check on a command and return the gate decision with the full tuple."""
+    try:
+        sensitivity = ActionSensitivity(action)
+    except ValueError:
+        raise HTTPException(422, f"action must be one of {[s.value for s in ActionSensitivity]}") from None
+    signal, sr, raw = _read_upload(file)
+    wake_sig = None
+    if wake is not None and wake.filename:
+        wake_sig, wsr, _ = _read_upload(wake)
+        if wsr != sr:
+            raise HTTPException(422, "wake and command must have the same sample rate")
+    profile = None
+    if profile_id:
+        path = _profile_path(profile_id)
+        if not os.path.exists(path):
+            raise HTTPException(404, "no such profile")
+        profile = SpeakerProfile.load(path)
+    gate = _trust_gate
+    if required_layers:
+        try:
+            layers = tuple(Layer(x.strip()) for x in required_layers.split(",") if x.strip())
+        except ValueError:
+            raise HTTPException(422, "required_layers must be a comma list of L1,L2,L3,L4") from None
+        gate = TrustGate(checks=_trust_gate.checks, required_layers=layers)
+    ctx = TrustContext(audio=signal, sample_rate=sr, transcript=transcript, alt_transcript=alt_transcript,
+                       wake_audio=wake_sig, speaker_profile=profile,
+                       meta={"client": request.client.host if request.client else "unknown", "filename": file.filename})
+    try:
+        result = gate.evaluate(ctx, sensitivity, command=command)
+    except InvalidInput as exc:
+        raise HTTPException(400, f"audio cannot be analysed: {exc}") from exc
+    payload = result.to_dict()
+    payload["models"] = _trust_models()
+    payload["profile"] = profile.name if profile else None
+    payload["capture_note"] = _capture_note(INSUFFICIENT_DATA if sr < 36_000 else "CLEAR", sr)
+    _retain("trust", request, file.filename, raw, {**payload, "filename": file.filename, "action": action, "transcript": transcript})
+    return JSONResponse(payload)
+
+
 @app.get("/api/health")
 async def health() -> dict:
     return {
@@ -378,6 +498,7 @@ async def health() -> dict:
         "default_policy": default_policy_json(),
         "verdicts": list(VERDICTS),
         "retention": bool(CAPTURE_DIR),
+        "trust_checks": [c.name for c in default_checks()], "trust_models": _trust_models(),
     }
 
 

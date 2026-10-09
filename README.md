@@ -210,7 +210,8 @@ This is a **baseline screen**, and it is honest about what it is not:
 - [x] Reference integration for an action-taking voice agent's confirmation step (`echoguard.gate`, `docs/confirmation_gate.md`)
 - [x] Web console, HTTP API and executive dashboard over the engine (`app/`, `app/README.md`)
 - [x] Trust layer: speaker, source and content checks with the gate as an agent tool call (`echoguard.trust`, `docs/trust_layer.md`)
-- [ ] Liveness / anti-spoofing check in L2; multi-microphone direction of arrival in L3; learned spoken-injection model for L4 — on the Phase 0 corpus
+- [x] Anti-spoofing in L2 (Spectra-AASIST, calibrated on ASVspoof2019 LA) and a spoken-injection seed corpus for L4 (`benchmark/trust/`)
+- [ ] Multi-microphone direction of arrival in L3; learned spoken-injection model for L4; replay (physical-access) detection — on the Phase 0 corpus
 
 ## Scope across attack classes
 

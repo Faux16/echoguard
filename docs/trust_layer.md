@@ -8,7 +8,7 @@ summarises them into a trust level and, with the action's sensitivity, returns
 | Layer | Question | Check | Needs |
 | --- | --- | --- | --- |
 | L1 signal integrity | Is the audio physically genuine — no ultrasonic carrier, no out-of-band energy? | `SignalIntegrityCheck` (the EchoGuard pipeline) | audio at ≥ 44.1 kHz; below that it reports *could not check* |
-| L2 speaker identity | Is this the enrolled user? | `SpeakerVerificationCheck` (ECAPA-TDNN embeddings, cosine to the enrolled profile) | `pip install "echoguard[trust]"`, a `SpeakerProfile`, ≥ 0.8 s of speech |
+| L2 speaker identity | Is this the enrolled user? Is it a live human voice rather than synthesis, conversion or playback? | `SpeakerVerificationCheck` (ECAPA-TDNN embeddings, cosine to the enrolled profile); `AntiSpoofCheck` (Spectra-AASIST bonafide score) | `pip install "echoguard[trust]"`, a `SpeakerProfile` for verification, ≥ 0.8 s of speech; ~1.5 GB of weights on first run for anti-spoofing |
 | L3 source attribution | Did the wake word and the command come from the same voice? | `SameSpeakerCheck` (embedding similarity between the two segments) | the wake-word segment; no enrolment needed |
 | L4 content safety | Is the transcript a spoken prompt injection? Do two decoders agree? | `ContentSafetyCheck` (pattern families: override, role change, exfiltration, authority claim, tool abuse, concealment), `TranscriptConsistencyCheck` (word error rate between decoders) | the transcript; optionally a second transcript |
 
@@ -81,15 +81,22 @@ clean L1 + L4 alone. Add your own check by subclassing `Check` and returning
   (`different_below=0.10`, `same_from=0.36`). That is clean read speech, so
   they remain constructor arguments for per-device re-calibration on the
   Phase 0 corpus.
-- L4's rule set scores 0.1 % false alarms on 5,000 real voice-assistant
-  commands (SLURP); its detection rate on text prompt-injection sets is low
-  because most of those items are off-topic requests, not command hijacks —
-  the spoken-injection corpus is the proper test.
-- L2 has no liveness / anti-spoofing check yet; a replayed or cloned voice of
-  the enrolled user passes L2 today. That is the next check to add.
-- L4 is a transparent rule baseline; the learned spoken-injection model
-  (Phase 2) is measured against it and replaces it only if it is better on
-  held-out phrasings.
+- L4's rule set scores 0 false alarms on 5,005 real voice-assistant commands
+  (SLURP) and on 63 verb-matched benign action commands; on the spoken-injection
+  seed corpus (`benchmark/trust/corpus`, 72 phrasings × slot fills ≈ 390
+  utterances across seven mechanism families) it detects about 86 % at text
+  level. That corpus was written by the rule authors, so the detection figure is
+  an upper bound until other people's phrasings are added in Phase 0; the
+  learned model (Phase 2) is measured against it.
+- `AntiSpoofCheck` uses `lab260/Spectra-AASIST` (MIT; wav2vec2-XLS-R + AASIST).
+  It separates synthetic and converted speech from live voices; replay through a
+  loudspeaker is only partly covered (ASVspoof physical access is a different
+  task) and is also attacked from the source side (L3). Its trust mapping is
+  calibrated on ASVspoof2019 LA — see `benchmark/trust/RESULTS.md`.
+- L4 is a transparent rule baseline with eight families: override, role
+  change, forcing, exfiltration, authority claim, tool abuse (recited
+  destinations and secrets), concealment. Every match is returned in the
+  evidence so a reviewer sees exactly why a transcript scored.
 - Multi-microphone direction-of-arrival (L3) waits on raw-channel captures.
 
 The tool call is stateless. Audio is scored in memory; the audit record is
