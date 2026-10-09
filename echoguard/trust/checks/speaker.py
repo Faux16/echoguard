@@ -5,9 +5,11 @@ Embeddings come from a pretrained ECAPA-TDNN (SpeechBrain,
 (`pip install echoguard[trust]`); without it, both checks report
 "could not check" and the gate treats the speaker as unverified.
 
-Thresholds below are PROVISIONAL — ECAPA cosine scores on VoxCeleb sit around
-0.25–0.35 at the equal-error point; the Phase 0 corpus calibrates them per
-device. They are exposed as constructor arguments for that reason.
+Thresholds are calibrated on LibriSpeech dev-clean (benchmark/trust/RESULTS.md):
+verification EER 0.8 % at cosine 0.38 with 3 enrolment utterances; same-speaker
+EER 4.3 % at 0.21 when the wake segment is 1 s. That is clean read speech; the
+Phase 0 corpus re-calibrates them per device, which is why they are constructor
+arguments.
 """
 
 from __future__ import annotations
@@ -170,8 +172,10 @@ class SameSpeakerCheck(Check):
     name = "same_speaker"
     layer = Layer.SOURCE
 
+    # Calibrated on LibriSpeech dev-clean with a 1 s wake segment (benchmark/trust/RESULTS.md):
+    # EER 4.3 % at similarity 0.21; the accept point sits above it, the reject point just below.
     def __init__(self, embedder: Optional[Embedder] = None,
-                 different_below: float = 0.20, same_from: float = 0.55):
+                 different_below: float = 0.10, same_from: float = 0.36):
         self.embedder = embedder
         self.different_below = different_below
         self.same_from = same_from

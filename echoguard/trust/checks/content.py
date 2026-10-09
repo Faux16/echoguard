@@ -36,12 +36,22 @@ PATTERNS: tuple[Pattern, ...] = (
     # override — the sentence exists to cancel the agent's standing instructions
     Pattern("override", r"\b(ignore|disregard|forget|override|bypass)\b.{0,30}\b(previous|prior|earlier|above|all|your|the|any)\b.{0,20}\b(instructions?|rules?|guidelines?|prompts?|directions?|policy|policies|restrictions?)\b", 0.9,
             "asks the agent to discard its instructions"),
-    Pattern("override", r"\b(new|updated|revised|different)\s+(instructions?|rules?|system prompt)\b", 0.6,
+    Pattern("override", r"\b(ignore|disregard|forget)\b.{0,16}\b(everything|all|what|the above|above|before|previous|prior|earlier|so far)\b", 0.8,
+            "asks the agent to discard what came before"),
+    Pattern("override", r"\b(new|updated|revised|different)\s+(instructions?|rules?|system prompt|orders?)\b", 0.6,
             "announces replacement instructions"),
+    Pattern("override", r"\b(now (comes|here comes|here is|here's)|(start|begin) with|next is|here comes)\s+(a|the|your)?\s*(new|next|second|another)?\s*(task|assignment|mission|job|instructions?|orders?)\b", 0.5,
+            "introduces a replacement task"),
     Pattern("override", r"\bfrom now on\b.{0,40}\b(you|your)\b", 0.5, "tries to change standing behaviour"),
+    # forcing — constrains every future answer or forbids the agent's normal responses
+    Pattern("forcing", r"\b(answer|respond|reply|say)\b.{0,30}\b(every|all|any)\s+(question|request|prompt|message)s?\b.{0,20}\bwith\b", 0.6,
+            "forces a fixed response to everything"),
+    Pattern("forcing", r"\b(you('re| are) (not )?supposed to|you must (always|never)|at all times)\b", 0.4,
+            "dictates how the agent must respond"),
     # role change — the sentence redefines what the agent is
-    Pattern("role_change", r"\b(you are now|you're now|act as|pretend (to be|you are|you're)|roleplay as|take the role of|behave as)\b", 0.7,
+    Pattern("role_change", r"\b(you are now|you're now|act as|pretend (to be|you are|you're)|roleplay as|take the role of|behave as|you are (a|an)\s+\w+\s*(who|that|and|now|from now))\b", 0.7,
             "assigns the agent a new identity or role"),
+    Pattern("role_change", r"\b(let's|lets|let us)\s+play\s+a\s+game\b", 0.5, "frames a behaviour change as a game"),
     Pattern("role_change", r"\b(developer|debug|admin|god|unrestricted|jailbreak)\s+mode\b", 0.9,
             "invokes a privileged mode"),
     Pattern("role_change", r"\b(do anything now|no restrictions|without (any )?(restrictions|limits|filters))\b", 0.8,
@@ -55,14 +65,15 @@ PATTERNS: tuple[Pattern, ...] = (
     Pattern("authority", r"\b(this is (a|an)\s+)?(test|emergency|security)\s+(mode|override|protocol)\b", 0.5,
             "invokes an exceptional mode"),
     # tool abuse — redirecting outputs to a third party named in the command itself
-    Pattern("tool_abuse", r"\b(send|forward|share|text|email|transfer|wire)\b.{0,40}\b(to|at)\s+(this|the following|that)\s+(number|address|account|email|contact)\b", 0.5,
+    # a destination recited inside the command (a number, an account) rather than a named contact
+    Pattern("tool_abuse", r"\b(send|forward|share|text|transfer|wire|pay)\b.{0,40}\b(to|at)\s+(this|the following|that)\s+(number|account|wallet|iban)\b", 0.5,
             "routes an action to a destination supplied in the command"),
     Pattern("tool_abuse", r"\b(my|the)\s+(location|password|passcode|pin|one[- ]time (code|password)|verification code|2fa code|card number|bank details)\b.{0,40}\b(send|forward|share|read|tell|text)\b|\b(send|forward|share|read( out)?|tell|text)\b.{0,40}\b(my|the)\s+(location|password|passcode|pin|one[- ]time (code|password)|verification code|2fa code|card number|bank details)\b", 0.6,
             "moves a secret or the user's location"),
     # concealment — asking the agent to hide what it did
     Pattern("concealment", r"\b(don't|do not|never)\s+(tell|notify|inform|alert|mention)\b.{0,30}\b(the (user|owner)|anyone|them|him|her)\b", 0.7,
             "asks the agent to hide the action"),
-    Pattern("concealment", r"\b(quietly|silently|secretly|without (telling|asking|confirming|confirmation))\b", 0.5,
+    Pattern("concealment", r"\b(secretly|without (telling|asking|confirming|confirmation|notifying))\b|\b(quietly|silently)\s+(send|transfer|pay|unlock|delete|forward|share|disable|turn off)\b", 0.5,
             "asks for the action to be done without confirmation"),
 )
 

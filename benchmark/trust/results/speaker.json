@@ -1,0 +1,50 @@
+{
+ "dataset": "LibriSpeech dev-clean (read speech, 16 kHz, clean)",
+ "speakers": 40,
+ "model": "speechbrain/spkrec-ecapa-voxceleb",
+ "enrol_utts": 3,
+ "max_sec": 6.0,
+ "wake_sec": 1.0,
+ "L2_speaker_verification": {
+  "trials": 1200,
+  "targets": 600,
+  "eer": 0.0083,
+  "eer_threshold": 0.378,
+  "far_at_frr5": 0.0,
+  "threshold_frr5": 0.533,
+  "far_at_frr1": 0.0083,
+  "threshold_frr1": 0.386,
+  "at_default_thresholds": {
+   "accept_at": 0.384,
+   "reject_below": 0.269,
+   "far": 0.0083,
+   "frr": 0.0,
+   "undecided_target": 0.01,
+   "undecided_impostor": 0.05
+  },
+  "target_mean": 0.758,
+  "impostor_mean": 0.103
+ },
+ "L3_same_speaker_wake_vs_command": {
+  "trials": 1200,
+  "targets": 600,
+  "eer": 0.0433,
+  "eer_threshold": 0.213,
+  "far_at_frr5": 0.0283,
+  "threshold_frr5": 0.227,
+  "far_at_frr1": 0.2067,
+  "threshold_frr1": 0.14,
+  "at_default_thresholds": {
+   "accept_at": 0.274,
+   "reject_below": 0.188,
+   "far": 0.0117,
+   "frr": 0.03,
+   "undecided_target": 0.0617,
+   "undecided_impostor": 0.0733
+  },
+  "target_mean": 0.437,
+  "impostor_mean": 0.07
+ },
+ "elapsed_s": 172.7,
+ "embeddings": 2212
+}

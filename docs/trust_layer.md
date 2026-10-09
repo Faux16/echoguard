@@ -74,11 +74,17 @@ clean L1 + L4 alone. Add your own check by subclassing `Check` and returning
 ## Status and calibration
 
 - L1 is the benchmarked EchoGuard detector (see `BENCHMARK_REPORT.md`).
-- L2 and L3 use `speechbrain/spkrec-ecapa-voxceleb` with **provisional**
-  thresholds (`reject_below=0.15`, `accept_from=0.50`; same-speaker
-  `0.20` / `0.55`). They are constructor arguments because the Phase 0
-  matched-device corpus is what calibrates them; until then treat the exact
-  numbers as placeholders, not claims.
+- L2 and L3 use `speechbrain/spkrec-ecapa-voxceleb`. Thresholds come from
+  LibriSpeech dev-clean trials (`benchmark/trust/RESULTS.md`): verification
+  EER 0.8 % with 3 enrolment utterances (`reject_below=0.15`,
+  `accept_from=0.50`); same-speaker with a 1 s wake segment EER 4.3 %
+  (`different_below=0.10`, `same_from=0.36`). That is clean read speech, so
+  they remain constructor arguments for per-device re-calibration on the
+  Phase 0 corpus.
+- L4's rule set scores 0.1 % false alarms on 5,000 real voice-assistant
+  commands (SLURP); its detection rate on text prompt-injection sets is low
+  because most of those items are off-topic requests, not command hijacks —
+  the spoken-injection corpus is the proper test.
 - L2 has no liveness / anti-spoofing check yet; a replayed or cloned voice of
   the enrolled user passes L2 today. That is the next check to add.
 - L4 is a transparent rule baseline; the learned spoken-injection model
