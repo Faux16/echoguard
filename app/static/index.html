@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/console.css?v=18">
+<link rel="stylesheet" href="/static/console.css?v=19">
 <script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
 </head>
 <body>
@@ -184,8 +184,17 @@
         <div class="pagehead"><div><h1>History</h1><div class="sub" id="hSub">Stored locally in this browser</div></div>
           <div class="acts"><button class="btn ghost" id="hExport"><span class="ico-slot" data-ico="download"></span>Export JSON</button><button class="btn ghost" id="hCsv"><span class="ico-slot" data-ico="download"></span>CSV</button><button class="btn danger" id="hClear">Clear history</button></div></div>
         <div class="kpis" id="hkpis"></div>
-        <div class="card fill"><div class="card-h"><div class="filters"><input class="inp" id="hQ" placeholder="Search name, tag, note…" style="width:260px"><div class="seg" id="hFilter"><button data-f="all" class="on">All</button><button data-f="flag">Flagged</button><button data-f="CLEAR">Clear</button><button data-f="INSUFFICIENT_DATA">Insufficient</button></div></div><div class="right"><span class="sub" id="hCount"></span></div></div>
-          <div class="card-b"><div class="empty hidden" id="hEmpty"></div><div class="tablewrap" id="hTable"><table><thead><tr><th class="sortable" data-k="ts">When</th><th class="sortable" data-k="name">Capture</th><th class="sortable" data-k="verdict">Verdict</th><th class="sortable n" data-k="risk">Risk</th><th class="sortable n" data-k="sr">Rate</th><th>Tags</th><th></th></tr></thead><tbody id="hBody"></tbody></table></div></div></div>
+        <div class="hgrid">
+          <div class="card hlist-card">
+            <div class="hbar"><div class="hsearch"><span class="ico-slot" data-ico="search"></span><input id="hQ" placeholder="Search name, tag, note…" autocomplete="off"></div>
+              <div class="seg" id="hFilter"><button data-f="all" class="on">All</button><button data-f="flag">Flagged</button><button data-f="CLEAR">Clear</button><button data-f="INSUFFICIENT_DATA">Could not assess</button></div>
+              <div class="seg" id="hSort"><button data-s="ts" class="on">Newest</button><button data-s="risk">Highest risk</button></div>
+              <span class="hcount" id="hCount"></span></div>
+            <div class="empty hidden" id="hEmpty"></div>
+            <div class="hlist" id="hList"></div>
+          </div>
+          <div class="card hdetail" id="hDetail"></div>
+        </div>
       </section>
 
       <!-- POLICIES -->
@@ -298,8 +307,8 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
 <div class="toasts" id="toasts"></div>
 <div id="paletteMount"></div>
 <input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
-<script src="/static/help.js?v=18"></script>
-<script src="/static/console.js?v=18"></script>
-<script src="/static/demo.js?v=18"></script>
+<script src="/static/help.js?v=19"></script>
+<script src="/static/console.js?v=19"></script>
+<script src="/static/demo.js?v=19"></script>
 </body>
 </html>

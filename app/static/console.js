@@ -1107,34 +1107,70 @@ function renderBatch() {
 }
 
 /* ============================================================ history */
-const hist = { sortK: "ts", dir: -1, filter: "all", q: "" };
+const hist = { sortK: "ts", dir: -1, filter: "all", q: "", sel: null };
 $("#hQ").oninput = () => { hist.q = $("#hQ").value.toLowerCase(); renderHistory(); };
 $$("#hFilter button").forEach(b => b.onclick = () => { $$("#hFilter button").forEach(x => x.classList.toggle("on", x === b)); hist.filter = b.dataset.f; renderHistory(); });
-sortHeads("#v-history", hist, renderHistory);
+$$("#hSort button").forEach(b => b.onclick = () => { $$("#hSort button").forEach(x => x.classList.toggle("on", x === b)); hist.sortK = b.dataset.s; hist.dir = -1; renderHistory(); });
 $("#hCsv").onclick = () => history.length && download("echoguard_history.csv", csvOf(history));
 $("#hExport").onclick = () => history.length && download("echoguard_history.json", new Blob([JSON.stringify(history.map(({ blob, buf, ...r }) => r), null, 2)], { type: "application/json" }));
-$("#hClear").onclick = async () => { if (!history.length || !confirm(`Delete all ${history.length} stored captures from this browser?`)) return; await store.clear(); history = []; renderHistory(); renderOverview(); toast("History cleared", "ok"); };
+$("#hClear").onclick = async () => { if (!history.length || !confirm(`Delete all ${history.length} stored captures from this browser?`)) return; await store.clear(); history = []; hist.sel = null; renderHistory(); renderOverview(); toast("History cleared", "ok"); };
 function filteredHistory() {
   const f = hist.filter, q = hist.q;
   return history.filter(r => (f === "all" || (f === "flag" ? isFlag(r.verdict) : r.verdict === f)) && (!q || (r.name + " " + (r.tags || []).join(" ") + " " + (r.note || "")).toLowerCase().includes(q)));
 }
+const V_ICON = { CLEAR: "check", SUSPICIOUS: "warn", HIGH_RISK: "x", INSUFFICIENT_DATA: "info" };
+const dayLabel = ts => { const d = new Date(ts), t = new Date(); t.setHours(0, 0, 0, 0); const dd = new Date(d); dd.setHours(0, 0, 0, 0); const k = Math.round((t - dd) / 864e5);
+  return k === 0 ? "Today" : k === 1 ? "Yesterday" : d.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" }); };
+const clock = ts => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const winStrip = (r, cls = "wstrip") => { const w = r.data?.windows || []; if (!w.length) return "";
+  return `<span class="${cls}">${w.slice(0, 40).map(x => `<i style="height:${x.verdict === "INSUFFICIENT_DATA" ? 18 : Math.max(14, (x.overall_risk || 0) * 100)}%;background:${VERDICT[x.verdict]?.hex || "var(--na)"}"></i>`).join("")}</span>`; };
+const riskTxt = r => r.risk == null || r.risk < 0 || r.verdict === "INSUFFICIENT_DATA" ? "—" : r.risk.toFixed(2);
 function renderHistory() {
-  const rows = sortRows(filteredHistory().slice(), hist.sortK, hist.dir); markHeads("#v-history", hist);
-  const bytes = history.reduce((a, r) => a + (r.bytes || 0), 0);
-  const cnt = v => history.filter(r => r.verdict === v).length;
-  kpiCards($("#hkpis"), [["Stored", history.length, "var(--text)", `${(bytes / 1048576).toFixed(1)} MB of audio`], ["Clear", cnt("CLEAR"), "var(--ok)"], ["Flagged", cnt("SUSPICIOUS") + cnt("HIGH_RISK"), "var(--bad)", `${cnt("SUSPICIOUS")} suspicious · ${cnt("HIGH_RISK")} high risk`], ["Insufficient data", cnt("INSUFFICIENT_DATA"), "var(--na)", "below 36 kHz"]]);
+  const rows = sortRows(filteredHistory().slice(), hist.sortK, hist.dir);
+  const bytes = history.reduce((a, r) => a + (r.bytes || 0), 0), cnt = v => history.filter(r => r.verdict === v).length;
+  kpiCards($("#hkpis"), [["Stored", history.length, "var(--text)", `${(bytes / 1048576).toFixed(1)} MB of audio`], ["Clear", cnt("CLEAR"), "var(--ok)", "no injection signature"], ["Flagged", cnt("SUSPICIOUS") + cnt("HIGH_RISK"), "var(--bad)", `${cnt("SUSPICIOUS")} suspicious · ${cnt("HIGH_RISK")} high risk`], ["Could not assess", cnt("INSUFFICIENT_DATA"), "var(--na)", "captured below 36 kHz"]]);
   $("#hCount").textContent = `${rows.length} of ${history.length}`;
   $("#hSub").innerHTML = storeErr ? `<span style="color:var(--bad)">Browser storage unavailable: ${esc(storeErr)}</span> — captures are scored but cannot be kept. Private windows and some managed browsers block IndexedDB.`
-    : `${history.length} capture${history.length === 1 ? "" : "s"} · ${(bytes / 1048576).toFixed(1)} MB · stored locally in this browser`;
-  $("#hEmpty").classList.toggle("hidden", !!rows.length); $("#hTable").classList.toggle("hidden", !rows.length);
-  if (!history.length) { $("#hEmpty").innerHTML = `${icon("history")}<b style="margin-top:10px">No captures yet</b>Analyses are saved here automatically (Settings → Data &amp; privacy).`; return; }
-  if (!rows.length) { $("#hEmpty").innerHTML = `${icon("search")}<b style="margin-top:10px">Nothing matches</b>Try another search or filter.`; return; }
-  $("#hBody").innerHTML = rows.map(r => `<tr class="click" data-id="${r.id}"><td class="faint" style="white-space:nowrap">${fmtWhen(r.ts)}</td><td><div class="row" style="gap:8px">${icon("file")}<span>${esc(r.name)}${r.note ? `<div class="faint" style="font-size:11.5px;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.note)}</div>` : ""}</span></div></td><td>${vtag(r.verdict)}</td><td class="n">${rbar(r.risk, r.verdict)}</td>
-    <td class="n">${(r.sr / 1000).toFixed(1)} kHz</td><td>${(r.tags || []).map(t => `<span class="chip">${esc(t)}</span>`).join(" ")}</td>
-    <td class="n" style="white-space:nowrap"><button class="btn sm ghost" data-cmp="${r.id}" title="Compare">${icon("compare")}</button> <button class="btn sm ghost" data-del="${r.id}" title="Delete">${icon("trash")}</button></td></tr>`).join("");
-  $$("#hBody tr[data-id]").forEach(tr => tr.onclick = e => { if (e.target.closest("button")) return; openRecord(tr.dataset.id); });
-  $$("#hBody [data-del]").forEach(b => b.onclick = async () => { await store.del(b.dataset.del); history = history.filter(r => r.id !== b.dataset.del); renderHistory(); renderOverview(); });
-  $$("#hBody [data-cmp]").forEach(b => b.onclick = () => { if (compare.a && compare.a !== b.dataset.cmp) compare.b = b.dataset.cmp; else compare.a = b.dataset.cmp; go("compare"); });
+    : `Every capture you analysed, with its audio and the engine's result · ${(bytes / 1048576).toFixed(1)} MB · stored locally in this browser`;
+  $("#hEmpty").classList.toggle("hidden", !!rows.length); $("#hList").classList.toggle("hidden", !rows.length);
+  if (!rows.length) { $("#hEmpty").innerHTML = history.length ? `${icon("search")}<b style="margin-top:10px">Nothing matches</b>Try another search or filter.` : `${icon("history")}<b style="margin-top:10px">No captures yet</b>Analyses are saved here automatically (Settings → Data &amp; privacy).`; renderHistDetail(null); return; }
+  if (!rows.some(r => r.id === hist.sel)) hist.sel = rows[0].id;
+  let h = "", last = null;
+  rows.forEach(r => {
+    const g = hist.sortK === "ts" ? dayLabel(r.ts) : null;
+    if (g && g !== last) { const n = rows.filter(x => dayLabel(x.ts) === g).length; h += `<div class="hday"><b>${g}</b><span>${n} capture${n === 1 ? "" : "s"}</span></div>`; last = g; }
+    h += `<div class="hrow${r.id === hist.sel ? " on" : ""}" data-id="${r.id}"><span class="vg v-${r.verdict}">${icon(V_ICON[r.verdict] || "info")}</span>
+      <div class="hm"><b>${esc(r.name)}</b><span class="hn">${r.note ? esc(r.note) : `${(r.sr / 1000).toFixed(1)} kHz · ${r.dur != null ? r.dur.toFixed(1) + " s" : "—"}${r.car ? ` · carrier ${(r.car / 1000).toFixed(1)} kHz` : ""}`}</span>
+        <span class="hc"><em>${hist.sortK === "ts" ? clock(r.ts) : fmtWhen(r.ts)}</em><em>${(r.sr / 1000).toFixed(1)} kHz</em>${(r.tags || []).slice(0, 3).map(t => `<em class="t">${esc(t)}</em>`).join("")}</span></div>
+      ${winStrip(r)}<div class="hr"><b style="color:${isFlag(r.verdict) ? VERDICT[r.verdict].hex : "var(--text)"}">${riskTxt(r)}</b><span>${r.verdict === "INSUFFICIENT_DATA" ? "Not assessed" : VERDICT[r.verdict]?.label || r.verdict}</span></div></div>`;
+  });
+  $("#hList").innerHTML = h;
+  $$("#hList .hrow").forEach(el => { el.onclick = () => { hist.sel = el.dataset.id; $$("#hList .hrow").forEach(x => x.classList.toggle("on", x === el)); renderHistDetail(history.find(x => x.id === hist.sel)); };
+    el.ondblclick = () => openRecord(el.dataset.id); });
+  renderHistDetail(history.find(x => x.id === hist.sel));
+}
+function renderHistDetail(r) {
+  const el = $("#hDetail");
+  if (!r) { el.innerHTML = `<div class="empty" style="padding:60px 20px">${icon("file")}<b style="margin-top:10px">Select a capture</b>Its result, measurements and window timeline appear here.</div>`; return; }
+  const d = r.data || {}, top = (d.findings || []).filter(f => f.assessable !== false).sort((a, b) => b.risk - a.risk)[0], col = VERDICT[r.verdict]?.hex || "var(--na)";
+  const prof = (d.findings || []).find(f => f.name === "spectral_profile");
+  const why = r.verdict === "INSUFFICIENT_DATA" ? (d.capture_note || "The capture's sample rate is too low to contain the ultrasonic band, so the engine could not look.")
+    : r.verdict === "CLEAR" ? `No injection signature: no modulated ultrasonic carrier and no meaningful energy above the voice band.${prof ? " " + prof.detail : ""}` : top ? top.detail : "—";
+  const stats = [["Sample rate", (r.sr / 1000).toFixed(1), "kHz"], ["Duration", r.dur != null ? r.dur.toFixed(2) : "—", "s"], ["Above 18 kHz", r.oob == null ? "—" : (r.oob * 100).toFixed(r.oob < .01 ? 2 : 1), r.oob == null ? "" : "%"], ["Carrier", r.car ? (r.car / 1000).toFixed(2) : "none", r.car ? "kHz" : ""]];
+  const w = d.windows || [];
+  el.innerHTML = `<div class="hd-glow" style="--vc:${col}"></div>
+    <div class="hd-top">${vtag(r.verdict)}<span class="faint">${new Date(r.ts).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span></div>
+    <h2 class="hd-name">${esc(r.name)}</h2>
+    <div class="hd-score"><b style="color:${isFlag(r.verdict) ? col : "var(--text)"}">${riskTxt(r)}</b><div><span>risk score</span><em>${r.verdict === "INSUFFICIENT_DATA" ? "could not check" : r.risk >= .66 ? "above the high-risk line (0.66)" : r.risk >= .33 ? "above the suspicious line (0.33)" : "below the suspicious line (0.33)"}</em></div></div>
+    <p class="hd-why">${esc(why)}</p>
+    <div class="hd-stats">${stats.map(([k, v, u]) => `<div><span>${k}</span><b>${v}<small>${u}</small></b></div>`).join("")}</div>
+    ${w.length ? `<div class="hd-sec"><div class="hd-h"><span>Window timeline</span><em>${w.length} windows · worst decides</em></div><div class="hd-win">${w.map(x => `<i title="${x.start_sec.toFixed(1)} s · ${VERDICT[x.verdict]?.label || x.verdict} · ${(x.overall_risk || 0).toFixed(2)}" style="height:${x.verdict === "INSUFFICIENT_DATA" ? 14 : Math.max(8, (x.overall_risk || 0) * 100)}%;background:${VERDICT[x.verdict]?.hex || "var(--na)"}"></i>`).join("")}</div></div>` : ""}
+    ${(r.tags || []).length || r.note ? `<div class="hd-sec"><div class="hd-h"><span>Notes</span><em>${esc(r.source || "upload")}</em></div>${(r.tags || []).length ? `<div class="hd-tags">${r.tags.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>` : ""}${r.note ? `<p class="hd-note">${esc(r.note)}</p>` : ""}</div>` : ""}
+    <div class="hd-acts"><button class="btn primary" id="hdOpen">${icon("analyze")}Open full analysis</button><button class="btn" id="hdCmp">${icon("compare")}Compare</button><button class="iconbtn" id="hdDl" title="Download WAV">${icon("download")}</button><button class="iconbtn" id="hdDel" title="Delete">${icon("trash")}</button></div>`;
+  $("#hdOpen").onclick = () => openRecord(r.id);
+  $("#hdCmp").onclick = () => { if (compare.a && compare.a !== r.id) compare.b = r.id; else compare.a = r.id; go("compare"); };
+  $("#hdDl").onclick = () => { const b = recBlob(r); if (b) download(r.name, b); else toast("Audio for this capture was not stored", "bad"); };
+  $("#hdDel").onclick = async () => { if (!confirm(`Delete ${r.name}?`)) return; await store.del(r.id); history = history.filter(x => x.id !== r.id); hist.sel = null; renderHistory(); renderOverview(); };
 }
 async function openRecord(id) {
   const r = history.find(x => x.id === id) || await store.get(id); if (!r) return toast("Capture not found", "bad");
