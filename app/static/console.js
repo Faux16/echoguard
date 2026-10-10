@@ -853,15 +853,16 @@ function speech(sr, secs, seed) {
   return norm(out, .8);
 }
 function norm(x, peak) { let m = 0; for (const v of x) m = Math.max(m, Math.abs(v)); const k = peak / (m || 1); for (let i = 0; i < x.length; i++) x[i] *= k; return x; }
-function demoAudio(kind, secs = 2.4, seed = 7) {
+function demoAudio(kind, secs = 2.4, seed = 7, o = {}) {
+  const fc = o.fc || 20000, amp = o.amp ?? .38, bfc = o.bfc || 19000, bamp = o.bamp ?? .16;
   const sr = kind === "phone" ? 16000 : 48000;
   const room = speech(sr, secs, seed + 11);
   if (kind === "benign") return { sr, x: room };
   const n = room.length, x = new Float32Array(n);
-  if (kind === "beacon") { for (let i = 0; i < n; i++) x[i] = .7 * room[i] + .16 * Math.sin(2 * Math.PI * 19000 * i / sr) * (1 + .003 * Math.sin(2 * Math.PI * .4 * i / sr)); return { sr, x: norm(x, .9) }; }
+  if (kind === "beacon") { for (let i = 0; i < n; i++) x[i] = .7 * room[i] + bamp * Math.sin(2 * Math.PI * bfc * i / sr) * (1 + .003 * Math.sin(2 * Math.PI * .4 * i / sr)); return { sr, x: norm(x, .9) }; }
   const cmd = speech(sr, secs, seed + 101);                        // injected envelope — no words
   if (kind === "phone") { for (let i = 0; i < n; i++) x[i] = .7 * room[i] + .22 * cmd[i]; return { sr, x: norm(x, .9) }; }
-  for (let i = 0; i < n; i++) x[i] = .55 * room[i] + .38 * (1 + .85 * cmd[i]) * Math.sin(2 * Math.PI * 20000 * i / sr) + .05 * cmd[i];
+  for (let i = 0; i < n; i++) x[i] = .55 * room[i] + amp * (1 + .85 * cmd[i]) * Math.sin(2 * Math.PI * fc * i / sr) + .05 * cmd[i];
   return { sr, x: norm(x, .9) };
 }
 function encodeWAV(sm, rate) {
@@ -1116,7 +1117,7 @@ $("#hExport").onclick = () => history.length && download("echoguard_history.json
 $("#hClear").onclick = async () => { if (!history.length || !confirm(`Delete all ${history.length} stored captures from this browser?`)) return; await store.clear(); history = []; hist.sel = null; renderHistory(); renderOverview(); toast("History cleared", "ok"); };
 function filteredHistory() {
   const f = hist.filter, q = hist.q;
-  return history.filter(r => (f === "all" || (f === "flag" ? isFlag(r.verdict) : r.verdict === f)) && (!q || (r.name + " " + (r.tags || []).join(" ") + " " + (r.note || "")).toLowerCase().includes(q)));
+  return history.filter(r => (f === "all" || (f === "flag" ? isFlag(r.verdict) : r.verdict === f)) && (!q || (r.name + " " + (r.tags || []).join(" ") + " " + (r.note || "")).toLowerCase().includes(q)) && (!hist.facet || hist.facet.test(r)));
 }
 const V_ICON = { CLEAR: "check", SUSPICIOUS: "warn", HIGH_RISK: "x", INSUFFICIENT_DATA: "info" };
 const dayLabel = ts => { const d = new Date(ts), t = new Date(); t.setHours(0, 0, 0, 0); const dd = new Date(d); dd.setHours(0, 0, 0, 0); const k = Math.round((t - dd) / 864e5);
@@ -1126,7 +1127,10 @@ const winStrip = (r, cls = "wstrip") => { const w = r.data?.windows || []; if (!
   return `<span class="${cls}">${w.slice(0, 40).map(x => `<i style="height:${x.verdict === "INSUFFICIENT_DATA" ? 18 : Math.max(14, (x.overall_risk || 0) * 100)}%;background:${VERDICT[x.verdict]?.hex || "var(--na)"}"></i>`).join("")}</span>`; };
 const riskTxt = r => r.risk == null || r.risk < 0 || r.verdict === "INSUFFICIENT_DATA" ? "—" : r.risk.toFixed(2);
 function renderHistory() {
+  if (window.renderHistAnalysis) renderHistAnalysis();
   const rows = sortRows(filteredHistory().slice(), hist.sortK, hist.dir);
+  $("#hFacet").innerHTML = hist.facet ? `<span class="facet">${esc(hist.facet.label)}<button title="Clear filter">${icon("x")}</button></span>` : "";
+  if (hist.facet) $("#hFacet button").onclick = () => { hist.facet = null; renderHistory(); };
   const bytes = history.reduce((a, r) => a + (r.bytes || 0), 0), cnt = v => history.filter(r => r.verdict === v).length;
   kpiCards($("#hkpis"), [["Stored", history.length, "var(--text)", `${(bytes / 1048576).toFixed(1)} MB of audio`], ["Clear", cnt("CLEAR"), "var(--ok)", "no injection signature"], ["Flagged", cnt("SUSPICIOUS") + cnt("HIGH_RISK"), "var(--bad)", `${cnt("SUSPICIOUS")} suspicious · ${cnt("HIGH_RISK")} high risk`], ["Could not assess", cnt("INSUFFICIENT_DATA"), "var(--na)", "captured below 36 kHz"]]);
   $("#hCount").textContent = `${rows.length} of ${history.length}`;
@@ -1156,7 +1160,8 @@ function renderHistDetail(r) {
   const prof = (d.findings || []).find(f => f.name === "spectral_profile");
   const why = r.verdict === "INSUFFICIENT_DATA" ? (d.capture_note || "The capture's sample rate is too low to contain the ultrasonic band, so the engine could not look.")
     : r.verdict === "CLEAR" ? `No injection signature: no modulated ultrasonic carrier and no meaningful energy above the voice band.${prof ? " " + prof.detail : ""}` : top ? top.detail : "—";
-  const stats = [["Sample rate", (r.sr / 1000).toFixed(1), "kHz"], ["Duration", r.dur != null ? r.dur.toFixed(2) : "—", "s"], ["Above 18 kHz", r.oob == null ? "—" : (r.oob * 100).toFixed(r.oob < .01 ? 2 : 1), r.oob == null ? "" : "%"], ["Carrier", r.car ? (r.car / 1000).toFixed(2) : "none", r.car ? "kHz" : ""]];
+  const hm = window.hxM ? hxM(r) : null, pk = r.car || (hm && hm.peak && hm.prom >= 10 ? hm.peak : null);
+  const stats = [["Sample rate", (r.sr / 1000).toFixed(1), "kHz"], ["Duration", r.dur != null ? r.dur.toFixed(2) : "—", "s"], ["Above 18 kHz", r.oob == null ? "—" : (r.oob * 100).toFixed(r.oob < .01 ? 2 : 1), r.oob == null ? "" : "%"], ["Tonal peak", pk ? (pk / 1000).toFixed(2) : "none", pk ? "kHz" : ""]];
   const w = d.windows || [];
   el.innerHTML = `<div class="hd-glow" style="--vc:${col}"></div>
     <div class="hd-top">${vtag(r.verdict)}<span class="faint">${new Date(r.ts).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span></div>
@@ -1166,8 +1171,10 @@ function renderHistDetail(r) {
     <div class="hd-stats">${stats.map(([k, v, u]) => `<div><span>${k}</span><b>${v}<small>${u}</small></b></div>`).join("")}</div>
     ${w.length ? `<div class="hd-sec"><div class="hd-h"><span>Window timeline</span><em>${w.length} windows · worst decides</em></div><div class="hd-win">${w.map(x => `<i title="${x.start_sec.toFixed(1)} s · ${VERDICT[x.verdict]?.label || x.verdict} · ${(x.overall_risk || 0).toFixed(2)}" style="height:${x.verdict === "INSUFFICIENT_DATA" ? 14 : Math.max(8, (x.overall_risk || 0) * 100)}%;background:${VERDICT[x.verdict]?.hex || "var(--na)"}"></i>`).join("")}</div></div>` : ""}
     ${(r.tags || []).length || r.note ? `<div class="hd-sec"><div class="hd-h"><span>Notes</span><em>${esc(r.source || "upload")}</em></div>${(r.tags || []).length ? `<div class="hd-tags">${r.tags.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>` : ""}${r.note ? `<p class="hd-note">${esc(r.note)}</p>` : ""}</div>` : ""}
+    ${window.histDetailExtra ? histDetailExtra(r) : ""}
     <div class="hd-acts"><button class="btn primary" id="hdOpen">${icon("analyze")}Open full analysis</button><button class="btn" id="hdCmp">${icon("compare")}Compare</button><button class="iconbtn" id="hdDl" title="Download WAV">${icon("download")}</button><button class="iconbtn" id="hdDel" title="Delete">${icon("trash")}</button></div>`;
   $("#hdOpen").onclick = () => openRecord(r.id);
+  $$("#hDetail [data-sim]").forEach(b => b.onclick = () => { hist.sel = b.dataset.sim; renderHistory(); });
   $("#hdCmp").onclick = () => { if (compare.a && compare.a !== r.id) compare.b = r.id; else compare.a = r.id; go("compare"); };
   $("#hdDl").onclick = () => { const b = recBlob(r); if (b) download(r.name, b); else toast("Audio for this capture was not stored", "bad"); };
   $("#hdDel").onclick = async () => { if (!confirm(`Delete ${r.name}?`)) return; await store.del(r.id); history = history.filter(x => x.id !== r.id); hist.sel = null; renderHistory(); renderOverview(); };

@@ -1,8 +1,8 @@
 /* EchoGuard Console — demo mode.
    Fills every view with illustrative data so a feature walk-through never starts from an empty screen.
    - Fleet numbers (Executive summary) are generated in the browser from a fixed seed: illustrative, not measured.
-   - Captures (Activity, History, Batch, Compare, policy dry runs) are the four built-in samples, each scored by the
-     real engine, filed under realistic names. Opening one shows the engine's actual analysis of that sample.
+   - Captures (Activity, History, Batch, Compare, policy dry runs) are generated with the built-in sample
+     synthesiser at varied carriers, strengths and voices, and each one is scored by the real engine. Opening one shows the engine's actual analysis of that sample.
    - The Trust gate opens on a decision the engine actually returned for the ultrasonic sample.
    Nothing is written to browser storage while demo mode is on. A server in field-test mode still retains the scans the demo triggers. */
 "use strict";
@@ -67,29 +67,38 @@ function demoFleet(days) {
 
 /* ------------------------------------------------------------ captures: Activity, History, Batch, Compare */
 const DEMO_CAPTURES = [
-  ["kiosk_lobby_incident_1412.wav", "attack", 26, ["incident", "kiosk"], "Flagged during the lobby kiosk burst: a carrier with speech-band sidebands. The gate blocked the unlock request."],
-  ["kitchen_hub_set_timer.wav", "benign", 3, ["baseline"], "Ordinary command in a quiet kitchen. Clear: nothing above the voice band."],
-  ["retail_store_19k_beacon.wav", "beacon", 7, ["false-positive-check"], "A shop's 19 kHz audio beacon: a bare tone with no sidebands, so it is correctly cleared."],
+  // name, kind, hours ago, tags, note, generator options (carrier fc / strength amp, beacon bfc / bamp)
+  ["kiosk_lobby_incident_1412.wav", "attack", 26, ["incident", "kiosk"], "Flagged during the lobby kiosk burst: a 20 kHz carrier with speech-band sidebands. The gate blocked the unlock request.", { fc: 20000, amp: .38 }],
+  ["kiosk_lobby_incident_1409.wav", "attack", 26.1, ["incident", "kiosk"], "First capture of the lobby burst, same emitter.", { fc: 20050, amp: .3 }],
+  ["kiosk_lobby_incident_1415.wav", "attack", 25.9, ["incident", "kiosk"], "Last capture of the burst; the emitter was moved further away.", { fc: 19980, amp: .16 }],
+  ["kitchen_hub_set_timer.wav", "benign", 3, ["baseline"], "Ordinary command in a quiet kitchen."],
+  ["retail_store_19k_beacon.wav", "beacon", 7, ["false-positive-check", "retail"], "A shop's 19 kHz audio beacon: a steady tone with no sidebands, so it is correctly cleared.", { bfc: 19000, bamp: .16 }],
   ["ivr_call_pay_invoice.wav", "phone", 9, ["telephony"], "A 16 kHz phone line cannot carry ultrasound. The engine says 'could not check' rather than 'clear'; the gate asks for confirmation."],
-  ["qa_rig3_injection_1m.wav", "attack", 30, ["lab", "injection"], "Controlled injection test at 1 m on the QA rig."],
   ["living_room_lights_off.wav", "benign", 14, ["baseline"], "Routine smart-home command."],
   ["car_navigate_home.wav", "benign", 20, ["baseline", "car"], "In-car command over road noise."],
-  ["mall_ad_beacon_near_ultrasound.wav", "beacon", 40, ["false-positive-check"], "Advertising beacon at 19 kHz. Cleared: no modulation."],
+  ["qa_rig3_injection_21k_lvl1.wav", "attack", 30, ["lab", "injection"], "Controlled injection test on the QA rig, 21.5 kHz carrier, full drive.", { fc: 21500, amp: .34 }],
+  ["qa_rig3_injection_21k_lvl2.wav", "attack", 30.2, ["lab", "injection"], "Same rig at a lower drive level, still flagged.", { fc: 21500, amp: .14 }],
+  ["qa_rig3_injection_21k_lvl4.wav", "attack", 30.4, ["lab", "injection"], "Same rig at a much lower drive level. Still clearly flagged: this capture is taken before any converter, so the carrier survives intact. Through a phone's 48 kHz converter it would not (see Coverage & limits).", { fc: 21500, amp: .055 }],
+  ["qa_rig3_injection_23k_lvl1.wav", "attack", 31, ["lab", "injection"], "Higher carrier, 23 kHz, close to the 24 kHz Nyquist limit of a 48 kHz capture.", { fc: 23000, amp: .3 }],
+  ["mall_ad_beacon_18k.wav", "beacon", 40, ["false-positive", "retail"], "Advertising beacon at 18.6 kHz, flagged suspicious: the tone sits close enough to the voice band that room speech reads as weak sidebands. A real false positive; the gate asks for confirmation rather than blocking. Worth reviewing.", { bfc: 18600, bamp: .1 }],
   ["ivr_call_check_balance.wav", "phone", 46, ["telephony"], "Telephony-rate audio: the signal check cannot run."],
-  ["qa_rig3_injection_3m.wav", "attack", 52, ["lab", "injection"], "Same rig at 3 m."],
   ["kitchen_hub_weather.wav", "benign", 60, ["baseline"], "Routine query."],
-  ["hotel_room_tv_ad.wav", "beacon", 75, ["false-positive-check"], "TV advert with a tracking tone."],
-  ["kiosk_lobby_incident_1409.wav", "attack", 26.1, ["incident", "kiosk"], "First capture of the lobby burst."],
+  ["hotel_room_tv_ad_20k.wav", "beacon", 75, ["false-positive-check", "hotel"], "TV advert with a loud 20.5 kHz tracking tone: plenty of high-frequency energy, still no modulation.", { bfc: 20500, bamp: .3 }],
   ["car_call_mom.wav", "benign", 90, ["car"], "Hands-free call request."],
+  ["kiosk_lobby_baseline.wav", "benign", 120, ["kiosk", "baseline"], "The same kiosk a week earlier, before the incident."],
+  ["office_pa_system_tone.wav", "beacon", 140, ["false-positive-check"], "Public-address pilot tone at 19.5 kHz.", { bfc: 19500, bamp: .22 }],
+  ["car_infotainment_radio.wav", "benign", 160, ["car"], "Command with the radio playing."],
+  ["qa_rig3_injection_20k_lvl6.wav", "attack", 200, ["lab", "injection"], "Earlier rig run at the lowest drive level. Still flagged in a pre-converter capture.", { fc: 20000, amp: .035 }],
+  ["smart_speaker_music.wav", "benign", 230, ["baseline"], "Request over background music."],
 ];
 async function demoHistory() {
-  const now = Date.now(), out = [];
-  for (let i = 0; i < DEMO_CAPTURES.length; i++) {
-    const [name, kind, hoursAgo, tags, note] = DEMO_CAPTURES[i], c = await loadDemo(kind);
-    const rec = recordFrom(c.data, c.blob, name, { id: "demo-" + i, ts: now - hoursAgo * 3600e3, tags, note, source: i % 4 === 0 ? "batch" : "upload" });
-    rec.demoKind = kind; out.push(rec);
-  }
-  return out.sort((a, b) => b.ts - a.ts);
+  const now = Date.now();
+  const recs = await Promise.all(DEMO_CAPTURES.map(async ([name, kind, hoursAgo, tags, note, opt], i) => {
+    const { sr, x } = demoAudio(kind, 2.4, 7 + i * 13, opt || {}), blob = encodeWAV(x, sr), data = await scanBlob(blob, name, "1.0", "0.5");
+    const rec = recordFrom(data, blob, name, { id: "demo-" + i, ts: now - hoursAgo * 3600e3, tags, note, source: tags.includes("lab") ? "batch" : "upload" });
+    rec.demoKind = kind; rec.full = data; return rec;
+  }));
+  return recs.sort((a, b) => b.ts - a.ts);
 }
 
 /* ------------------------------------------------------------ trust gate: a real engine decision for the ultrasonic sample */
@@ -122,8 +131,8 @@ async function enableDemo(quiet) {
   try { Demo.hist = Demo.hist || await demoHistory(); history = Demo.hist.slice(); }
   catch (e) { if (!quiet) toast("Demo captures need the engine: " + e.message, "bad", 5000); }
   if (!batch.rows.some(r => r.demo)) {
-    const pickB = history.filter((_, i) => i % 2 === 0).slice(0, 7);
-    batch.rows = pickB.map(r => ({ ...r, file: r.blob, data: demoCache[r.demoKind]?.data || r.data, demo: true })).concat(batch.rows);
+    const pickB = history.filter((_, i) => i % 2 === 0).slice(0, 10);
+    batch.rows = pickB.map(r => ({ ...r, file: r.blob, data: r.full || r.data, demo: true })).concat(batch.rows);
   }
   trust.last = null;
 }
@@ -154,7 +163,7 @@ loadExec = async function () {
   $("#exSub").textContent = `Illustrative fleet: ${exec.data.total.toLocaleString()} screenings across ${exec.data.clients.length} sources over ${exec.days} days. Generated in the browser, not measured.`;
 };
 const _renderHistory = renderHistory;
-renderHistory = function () { _renderHistory(); if (Demo.on) $("#hSub").textContent = `${history.length} demo captures: the built-in samples, scored by the engine, under illustrative names. Not saved in this browser.`; };
+renderHistory = function () { _renderHistory(); if (Demo.on) $("#hSub").textContent = `${history.length} demo captures: synthesised at varied carriers, strengths and voices, each scored by the real engine. Not saved in this browser.`; };
 const _renderOverview = renderOverview;
 renderOverview = function () { _renderOverview(); if (Demo.on && $("#ovSub")) $("#ovSub").textContent = "Demo captures · illustrative names · engine online"; };
 const _trustEnter = trustEnter;
@@ -179,7 +188,7 @@ renderSettings = function () {
   _renderSettings();
   const el = $("#setDemo"); if (!el) return;
   el.innerHTML = settingRow("Show demo data", "Fills every view with illustrative data for walking someone through the platform. Your own browser history is set aside and nothing is saved to it while demo mode is on. If the server is in field-test mode, the scans the demo runs are still retained there.", `<div class="toggle${prefs.demo ? " on" : ""}" id="demoToggle"></div>`)
-    + `<div class="demofacts"><div><b>Executive summary</b>A generated 30-day fleet with six sources and one incident. Illustrative, not measured.</div><div><b>Captures</b>The four built-in samples, scored by the real engine, under realistic names.</div><div><b>Trust gate</b>Opens on a decision the engine actually returned. Scenarios run for real.</div><div><b>Live monitor</b>Starts the simulated stream automatically.</div></div>`;
+    + `<div class="demofacts"><div><b>Executive summary</b>A generated 30-day fleet with six sources and one incident. Illustrative, not measured.</div><div><b>Captures</b>22 synthesised captures at varied carriers and strengths, each scored by the real engine.</div><div><b>Trust gate</b>Opens on a decision the engine actually returned. Scenarios run for real.</div><div><b>Live monitor</b>Starts the simulated stream automatically.</div></div>`;
   $("#demoToggle").onclick = () => setDemo(!prefs.demo);
 };
 const _paletteItems = paletteItems;
