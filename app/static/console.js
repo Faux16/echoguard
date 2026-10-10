@@ -25,11 +25,11 @@ const ICONS = {
   batch: '<path d="M4 7h16M4 12h16M4 17h10"/>',
   compare: '<path d="M12 3v18M4 7h5M4 12h5M4 17h5M15 7h5M15 12h5M15 17h5"/>',
   history: '<path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 8v4l3 2"/>',
-  policies: '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
+  policies: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
   coverage: '<circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/>',
   api: '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/>',
   exec: '<path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/>',
-  trust: '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M12 8v4M12 15h.01"/>',
+  trust: '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   upload: '<path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
   download: '<path d="M12 4v12m0 0l-4-4m4 4l4-4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
@@ -196,15 +196,17 @@ function renderARecent() {
 
 /* ============================================================ navigation */
 const NAV = [
-  { g: "Protect" }, { v: "trust", l: "Trust gate", k: "g" }, { v: "live", l: "Live monitor", k: "3", badge: true }, { v: "analyze", l: "Signal analysis", k: "2" }, { v: "batch", l: "Batch screening", k: "4" },
-  { g: "Observe" }, { v: "exec", l: "Executive summary", k: "`" }, { v: "overview", l: "Activity", k: "1" }, { v: "history", l: "History", k: "5" }, { v: "compare", l: "Compare", k: "6" },
-  { g: "Configure" }, { v: "policies", l: "Gate policies", k: "7" }, { v: "coverage", l: "Coverage & limits", k: "8" }, { v: "api", l: "API", k: "9" }, { v: "settings", l: "Settings", k: "0" },
+  { g: "Overview" }, { v: "exec", l: "Executive summary", k: "1" }, { v: "overview", l: "Activity", k: "2" },
+  { g: "Protect" }, { v: "trust", l: "Trust gate", k: "3" }, { v: "policies", l: "Gate policies", k: "4" }, { v: "live", l: "Live monitor", k: "5", badge: true },
+  { g: "Investigate" }, { v: "analyze", l: "Signal analysis", k: "6" }, { v: "batch", l: "Batch screening", k: "7" }, { v: "history", l: "History", k: "8" }, { v: "compare", l: "Compare", k: "9" },
+  { g: "Reference" }, { v: "coverage", l: "Coverage & limits" }, { v: "api", l: "API" },
+  { g: "", pin: true }, { v: "settings", l: "Settings", k: "0" },
 ];
 const VIEW_NAMES = Object.fromEntries(NAV.filter(n => n.v).map(n => [n.v, n.l]));
 function mountNav() {
   let h = ""; let open = false;
-  NAV.forEach(n => { if (n.g) { if (open) h += "</nav>"; h += `<div class="navgroup">${n.g}</div><nav class="nav">`; open = true; return; }
-    h += `<a data-v="${n.v}" title="${n.l}">${icon(n.v)}<span>${n.l}</span>${n.badge ? `<em class="badge hidden" id="liveBadge">0</em>` : ""}<span class="kbd">${n.k}</span></a>`; });
+  NAV.forEach(n => { if (n.g !== undefined) { if (open) h += "</nav>"; h += n.pin ? `<nav class="nav pinned">` : `<div class="navgroup">${n.g}</div><nav class="nav">`; open = true; return; }
+    h += `<a data-v="${n.v}" title="${n.l}">${icon(n.v)}<span>${n.l}</span>${n.badge ? `<em class="badge hidden" id="liveBadge">0</em>` : ""}${n.k ? `<span class="kbd">${n.k}</span>` : ""}</a>`; });
   $("#navmount").innerHTML = h + "</nav>";
   $$(".nav a").forEach(a => a.onclick = () => go(a.dataset.v));
 }
@@ -213,6 +215,7 @@ function go(v, opts = {}) {
   if (!VIEW_NAMES[v]) v = "overview";
   currentView = v;
   $$(".nav a").forEach(a => a.classList.toggle("on", a.dataset.v === v));
+  if (window.innerWidth <= 760) requestAnimationFrame(() => { const a = $(".nav a.on"), m = $("#navmount"); if (a && m) m.scrollLeft += a.getBoundingClientRect().left - m.getBoundingClientRect().left - 14; });
   $$(".view").forEach(s => s.classList.toggle("on", s.id === "v-" + v));
   $("#crumbView").textContent = VIEW_NAMES[v];
   const f = v === "analyze" && state.data ? state.name : "";

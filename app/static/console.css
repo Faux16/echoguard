@@ -67,8 +67,10 @@ canvas.cv{display:block;width:100%}
 .brand{display:flex;align-items:center;gap:11px;height:44px;padding:0 4px;margin-bottom:18px}
 .brand .mark{width:40px;height:40px;flex:none}
 .brand .t{min-width:0;white-space:nowrap;line-height:1.2} .brand .t b{display:block;font-size:15px;font-weight:600;letter-spacing:-.02em} .brand .t span{font-size:11.5px;color:var(--text-3)}
-.navgroup{height:1px;margin:12px 10px;background:var(--border);font-size:0;overflow:hidden}
-.navgroup:first-child{display:none}
+#navmount{flex:1;display:flex;flex-direction:column;min-height:0}
+.navgroup{font-size:10.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--text-4);padding:18px 12px 6px;white-space:nowrap}
+.navgroup:first-child{padding-top:2px}
+.nav.pinned{margin-top:auto;padding-top:12px;border-top:1px solid var(--border)}
 .nav{display:flex;flex-direction:column;gap:4px}
 .nav a{position:relative;display:flex;align-items:center;gap:12px;height:42px;padding:0 11px;border-radius:var(--r);color:var(--text-3);text-decoration:none;cursor:pointer;font-weight:500;font-size:13.5px;white-space:nowrap;transition:background .15s,color .15s}
 .nav a .ico{width:19px;height:19px}
@@ -76,16 +78,18 @@ canvas.cv{display:block;width:100%}
 .nav a.on{background:var(--surface);color:var(--text);box-shadow:inset 0 0 0 1px var(--border-2),var(--shadow)}
 :root[data-theme="dark"] .nav a.on{background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.04))}
 .nav a .badge{margin-left:auto;font-size:10px;font-weight:700;min-width:18px;height:18px;padding:0 5px;border-radius:9px;display:grid;place-items:center;background:var(--bad);color:#fff}
-.nav a .kbd{display:none}
+.nav a .kbd,.nav a span.kbd{display:none!important}
 .rail-collapsed .nav a{justify-content:center;padding:0;width:48px;margin:0 auto}
 .rail-collapsed .nav a span,.rail-collapsed .brand .t,.rail-collapsed .railfoot .t{display:none}
 .rail-collapsed .brand{justify-content:center;padding:0}
-.rail-collapsed .navgroup{margin:12px 14px}
+.rail-collapsed .navgroup{height:1px;padding:0;margin:12px 14px;background:var(--border);font-size:0;overflow:hidden}
+.rail-collapsed .navgroup:first-child{display:none}
+.rail-collapsed .nav.pinned{border-top:0}
 .rail-collapsed .nav a .badge{position:absolute;top:4px;right:4px;min-width:15px;height:15px;font-size:9px;padding:0 3px}
 /* tooltip label when the rail is icon-only */
 .rail-collapsed .nav a::after{content:attr(title);position:absolute;left:calc(100% + 12px);top:50%;transform:translate(-4px,-50%);padding:6px 10px;border-radius:var(--r-sm);background:var(--btn);color:var(--btn-tx);font-size:12px;font-weight:500;white-space:nowrap;opacity:0;pointer-events:none;transition:.15s;box-shadow:var(--shadow-pop)}
 .rail-collapsed .nav a:hover::after{opacity:1;transform:translate(0,-50%)}
-.railfoot{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r);white-space:nowrap;min-width:0}
+.railfoot{margin-top:8px;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r);white-space:nowrap;min-width:0}
 .railfoot .t{min-width:0;font-size:11.5px;color:var(--text-3);line-height:1.35} .railfoot .t b{display:block;color:var(--text-2);font-weight:500;font-size:12px}
 .rail-collapsed .railfoot{justify-content:center;padding:10px 0}
 .led{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;box-shadow:0 0 0 4px var(--ok-soft),0 0 12px var(--ok)}
@@ -449,7 +453,7 @@ tbody tr.click{cursor:pointer} tbody tr:hover td{background:var(--hover)}
   .app,.app.rail-collapsed{grid-template-columns:1fr}
   .rail{position:static;height:auto;padding:12px 14px 6px;gap:8px;flex-direction:column}
   .brand,.rail-collapsed .brand{justify-content:flex-start;margin:0;padding:0}.rail-collapsed .brand .t{display:block}.navgroup,.railfoot{display:none}
-  #navmount{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px}#navmount::-webkit-scrollbar{display:none}
+  #navmount{display:flex;flex-direction:row;gap:4px;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px}.nav.pinned{margin:0;padding:0;border:0}#navmount::-webkit-scrollbar{display:none}
   .nav{flex-direction:row;flex:none}.nav a,.rail-collapsed .nav a{height:38px;width:auto;padding:0 14px;font-size:13px;border-radius:var(--pill);margin:0}.rail-collapsed .nav a span{display:inline}.nav a::after{display:none}
   .appbar{padding:0 14px;height:58px}.crumbs .file{max-width:120px}.search{min-width:0;width:38px;padding:0;justify-content:center}.search span,.search .kbd{display:none}
   main{padding:4px 14px 14px}
