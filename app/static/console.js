@@ -52,13 +52,16 @@ const ICONS = {
   tag: '<path d="M3 12V4h8l9 9-8 8z"/><circle cx="7" cy="8" r="1"/>',
   doc: '<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h6"/>',
   json: '<path d="M8 4c-2 0-3 1-3 3v2c0 1.5-1 2-2 2 1 0 2 .5 2 2v2c0 2 1 3 3 3M16 4c2 0 3 1 3 3v2c0 1.5 1 2 2 2-1 0-2 .5-2 2v2c0 2-1 3-3 3"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
+  wave: '<path d="M2 12h2M6 8v8M10 5v14M14 8v8M18 10v4M22 12h0"/>',
+  text: '<path d="M4 6h16M4 12h10M4 18h13"/>',
   spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
 };
 const icon = (n, cls = "ico") => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ICONS.info}</svg>`;
 function fillIcons(root = document) { root.querySelectorAll(".ico-slot[data-ico]").forEach(s => { s.outerHTML = icon(s.dataset.ico); }); }
 
 /* ============================================================ preferences (localStorage) */
-const PREF_DEFAULT = { theme: "system", rail: false, compact: false, window: "1.0", hop: "0.5", autosave: true, toasts: true, policy: null, policyName: "Default" };
+const PREF_DEFAULT = { theme: "system", rail: true, compact: false, window: "1.0", hop: "0.5", autosave: true, toasts: true, policy: null, policyName: "Default" };
 const prefs = (() => { try { return { ...PREF_DEFAULT, ...JSON.parse(localStorage.getItem("eg.prefs") || "{}") }; } catch { return { ...PREF_DEFAULT }; } })();
 function savePrefs() { try { localStorage.setItem("eg.prefs", JSON.stringify(prefs)); localStorage.setItem("eg.theme", prefs.theme); } catch { /* private mode */ } }
 
@@ -169,7 +172,7 @@ async function health() {
     const r = await fetch("/api/health"); const d = await r.json(); engine.ok = true; engine.info = d;
     $("#led").classList.remove("off"); $("#engState").textContent = "Engine online"; $("#engSub").textContent = "echoguard " + d.version + " · " + d.detectors.length + " detectors";
     $("#footEng").textContent = `EchoGuard ${d.version} · engine online · up ${fmtUptime(d.uptime_s)}`;
-    $("#envBadge").className = "envb " + (d.retention ? "field" : "prod");
+    $("#envBadge").className = "envb " + (d.retention ? "fieldtest" : "prod");
     $("#envBadge").querySelector("span").textContent = d.retention ? "Field test · uploads retained" : "Stateless · nothing stored";
     $("#envBadge").title = d.retention ? "This server keeps a copy of every upload and its result for analysis" : "Audio is scored in memory and discarded";
     $("#footEng").textContent += d.retention ? " · uploads retained for testing" : "";
@@ -1240,7 +1243,8 @@ function barChart(c, data, { T = 22, B = 40, L = 36, R = 10, labels = true } = {
   [0, 50, 100].forEach(v => { const y = T + (1 - v / 100) * ph; ctx.strokeStyle = gr; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.fillStyle = ax; ctx.fillText(v + "%", L - 6, y); });
   const bw = pw / data.length;
   data.forEach(([l, v, col], i) => { const x = L + i * bw + bw * .3, w = bw * .4, h = Math.max(2, ph * v / 100), y = T + ph - h;
-    ctx.fillStyle = col.startsWith("--") ? cssVar(col) : col; roundRect(ctx, x, y, w, h, 2); ctx.fill();
+    const cc = col.startsWith("--") ? cssVar(col) : col, gr2 = ctx.createLinearGradient(0, y, 0, T + ph); gr2.addColorStop(0, cc); gr2.addColorStop(1, cc.startsWith("#") && cc.length === 7 ? cc + "26" : cc);
+    ctx.fillStyle = gr2; roundRect(ctx, x, y, w, h, Math.min(8, w / 2, h / 2)); ctx.fill();
     ctx.fillStyle = TXT(); ctx.font = "600 11.5px Helvetica"; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(v ? v + "%" : "no verdict", x + w / 2, y - 5);
     if (labels) { ctx.fillStyle = ax; ctx.font = "10.5px Helvetica"; ctx.textBaseline = "top"; ctx.fillText(l, x + w / 2, T + ph + 9); } });
 }
@@ -1336,16 +1340,18 @@ function localFleet(days) {
     carriers_hz: rows.map(r => r.car).filter(Boolean).sort((a, b) => a - b),
     latency_ms: ms.length ? { p50: ms[Math.floor(ms.length / 2)], p95: ms[Math.max(0, Math.ceil(ms.length * .95) - 1)], max: ms[ms.length - 1] } : null,
     gates: { allow: 0, confirm: 0, block: 0 }, mean_risk: scored.length ? scored.reduce((a, r) => a + (r.risk || 0), 0) / scored.length : null,
+    timeline: rows.slice().sort((a, b) => a.ts - b.ts).slice(-600).map(r => [r.ts / 1000, r.verdict, r.risk]),
     recent_flagged: rows.filter(isF).sort((a, b) => b.ts - a.ts).slice(0, 12).map(r => ({ ts: r.ts / 1000, client: "this browser", file: r.name, verdict: r.verdict, risk: r.risk, sr: r.sr, carrier: r.car, sideband: r.sb, oob: r.oob })) };
 }
 const pct = (a, b) => b ? (a / b * 100).toFixed(a / b >= .1 || a === 0 ? 0 : 1) + "%" : "—";
 function renderExec() {
   const d = exec.data, bv = d.by_verdict, srv = exec.source === "server";
-  $("#exSource").className = "pill" + (srv ? "" : " warn"); $("#exSource").innerHTML = srv ? `${icon("check")} server captures` : `${icon("warn")} this browser only — retention is off`;
+  $("#exSource").className = "pill" + (srv ? "" : " warn"); $("#exSource").innerHTML = srv ? `${icon("check")} server captures · ${d.days} d` : `${icon("warn")} this browser only — retention is off`;
+  $("#exHeroN").textContent = d.total.toLocaleString();
+  $("#exHeroSub").innerHTML = `screenings in the last ${d.days} days.<br>${d.scored} could be assessed; ${d.flagged} carried an injection signature.`;
   $("#exSub").textContent = `${d.total} screening${d.total === 1 ? "" : "s"} in the last ${d.days} days · ${d.clients.length} source${d.clients.length === 1 ? "" : "s"}${srv ? " · generated " + new Date(d.generated_utc).toLocaleString() : ""}`;
   const insuf = bv.INSUFFICIENT_DATA || 0;
   kpiCards($("#exKpis"), [
-    ["Screenings", d.total, "var(--text)", `${d.scored} assessable`],
     ["Flag rate", pct(d.flagged, d.scored), d.flagged ? "var(--bad)" : "var(--ok)", `${d.flagged} of ${d.scored} assessable`],
     ["High risk", bv.HIGH_RISK || 0, bv.HIGH_RISK ? "var(--bad)" : "var(--text)", `${bv.SUSPICIOUS || 0} suspicious`],
     ["Could not assess", pct(insuf, d.total), insuf ? "var(--na)" : "var(--ok)", `${insuf} below 36 kHz`],
@@ -1375,23 +1381,31 @@ const GCOL = { allow: "--ok", confirm: "--warn", block: "--bad" };
 function drawExec() {
   const d = exec.data; if (!d || currentView !== "exec") return;
   const V = Object.keys(VERDICT);
+  // hero barcode: one thin line per screening, height = risk, colour = verdict
+  { const c = $("#exCode"); if (c.offsetParent) { const { ctx, W, H } = fit(c), tl = (d.timeline || []).filter(x => VERDICT[x[1]]); ctx.clearRect(0, 0, W, H);
+    const n = Math.max(tl.length, 1), step = W / Math.max(n, 60), lw = Math.max(1.5, Math.min(4, step * .55)), base = H - 2;
+    ctx.strokeStyle = "rgba(255,255,255,.08)"; ctx.beginPath(); ctx.moveTo(0, base + .5); ctx.lineTo(W, base + .5); ctx.stroke();
+    if (!tl.length) { ctx.fillStyle = "rgba(255,255,255,.4)"; ctx.font = "12.5px Helvetica"; ctx.textAlign = "center"; ctx.fillText("No screenings in this period", W / 2, H / 2); }
+    tl.forEach(([, v, r], i) => { const x = W - (tl.length - i) * step + step / 2; if (x < 0) return; const h = v === "INSUFFICIENT_DATA" || r == null ? H * .16 : Math.max(H * .12, (H - 6) * Math.max(.08, r));
+      const col = VERDICT[v]?.hex || "#888", g = ctx.createLinearGradient(0, base - h, 0, base); g.addColorStop(0, col); g.addColorStop(1, col + "22");
+      ctx.strokeStyle = g; ctx.lineWidth = lw; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x, base - lw / 2); ctx.lineTo(x, base - h + lw / 2); ctx.stroke(); }); ctx.lineCap = "butt"; ctx.lineWidth = 1; } }
   // stacked daily bars
   { const c = $("#exDay"); if (c.offsetParent) { const { ctx, W, H } = fit(c), L = 34, R = 8, T = 10, B = 26, pw = W - L - R, ph = H - T - B, ax = AX(), gr = GRID();
     ctx.clearRect(0, 0, W, H); const days = d.by_day, max = Math.max(1, ...days.map(x => V.reduce((a, v) => a + (x[v] || 0), 0)));
     const step = niceStep(max, 4); ctx.font = "10.5px Helvetica"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
     for (let y = 0; y <= max; y += step) { const yy = T + (1 - y / max) * ph; ctx.strokeStyle = gr; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(W - R, yy); ctx.stroke(); ctx.fillStyle = ax; ctx.fillText(y, L - 6, yy); }
     if (!days.length) { ctx.fillStyle = TXT3(); ctx.textAlign = "center"; ctx.font = "12.5px Helvetica"; ctx.fillText("No screenings in this period", L + pw / 2, T + ph / 2); }
-    const bw = Math.min(28, pw / Math.max(days.length, 1) * .5), gap = pw / Math.max(days.length, 1);
+    const bw = Math.min(22, pw / Math.max(days.length, 1) * .45), gap = pw / Math.max(days.length, 1);
     days.forEach((x, i) => { let y0 = T + ph; const cx = L + gap * i + gap / 2;
-      V.forEach(v => { const n = x[v] || 0; if (!n) return; const h = n / max * ph; ctx.fillStyle = VERDICT[v].hex; roundRect(ctx, cx - bw / 2, y0 - h, bw, h, 2); ctx.fill(); y0 -= h; });
+      V.forEach(v => { const n = x[v] || 0; if (!n) return; const h = n / max * ph; ctx.fillStyle = VERDICT[v].hex; roundRect(ctx, cx - bw / 2, y0 - h + 1, bw, Math.max(1, h - 2), Math.min(6, bw / 2, h / 2)); ctx.fill(); y0 -= h; });
       if (days.length <= 14 || i % Math.ceil(days.length / 10) === 0) { ctx.fillStyle = ax; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText(x.day.slice(5), cx, T + ph + 7); } }); } }
   // donut
   { const c = $("#exDonut"); if (c.offsetParent) { const { ctx, W, H } = fit(c), cx = W / 2, cy = H / 2, r = Math.min(W, H) / 2 - 4, tot = Math.max(1, d.total); let a = -Math.PI / 2;
-    ctx.clearRect(0, 0, W, H); ctx.lineWidth = 10;
+    ctx.clearRect(0, 0, W, H); ctx.lineWidth = 14; ctx.lineCap = "round";
     if (!d.total) { ctx.strokeStyle = cssVar("--track"); ctx.beginPath(); ctx.arc(cx, cy, r - 8, 0, 7); ctx.stroke(); }
-    V.forEach(v => { const n = d.by_verdict[v] || 0; if (!n) return; const b = a + n / tot * 2 * Math.PI; ctx.strokeStyle = VERDICT[v].hex; ctx.beginPath(); ctx.arc(cx, cy, r - 8, a + .015, b - .015); ctx.stroke(); a = b; });
-    ctx.fillStyle = TXT(); ctx.font = "600 22px Helvetica"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(d.total, cx, cy - 6);
-    ctx.fillStyle = TXT3(); ctx.font = "10.5px Helvetica"; ctx.fillText("screenings", cx, cy + 12); } }
+    V.forEach(v => { const n = d.by_verdict[v] || 0; if (!n) return; const b = a + n / tot * 2 * Math.PI; ctx.strokeStyle = VERDICT[v].hex; ctx.beginPath(); ctx.arc(cx, cy, r - 8, a + .07, Math.max(a + .08, b - .07)); ctx.stroke(); a = b; });
+    ctx.lineCap = "butt"; ctx.fillStyle = TXT(); ctx.font = "200 40px Helvetica Neue, Helvetica"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(d.total, cx, cy - 8);
+    ctx.fillStyle = TXT3(); ctx.font = "11px Helvetica"; ctx.fillText("screenings", cx, cy + 20); } }
   // sample rates
   { const c = $("#exRates"); if (c.offsetParent) barChart(c, d.rates.map(x => [(x.sr / 1000).toFixed(1) + " kHz", d.total ? Math.round(x.n / d.total * 100) : 0, x.sr >= 36000 ? "--ok" : "--na"]).slice(0, 6), { T: 18, B: 24, L: 34 }); }
   // carrier histogram, 2 kHz bins from 15 kHz
@@ -1401,7 +1415,7 @@ function drawExec() {
     if (!data.length) { ctx.fillStyle = TXT3(); ctx.font = "12.5px Helvetica"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("No carriers flagged", L + pw / 2, T + ph / 2); }
     else { const max = Math.max(...data.map(x => x[1])), bw = pw / data.length; ctx.font = "10.5px Helvetica";
       [0, max].forEach(v => { const y = T + (1 - v / max) * ph; ctx.strokeStyle = gr; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.fillStyle = ax; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(v, L - 5, y); });
-      data.forEach(([l, n, col], i) => { const x = L + i * bw + bw * .3, w = bw * .4, h = Math.max(2, ph * n / max); ctx.fillStyle = col; roundRect(ctx, x, T + ph - h, w, h, 2); ctx.fill();
+      data.forEach(([l, n, col], i) => { const x = L + i * bw + bw * .3, w = bw * .4, h = Math.max(2, ph * n / max); ctx.fillStyle = col; { const gr3 = ctx.createLinearGradient(0, T + ph - h, 0, T + ph); gr3.addColorStop(0, col); gr3.addColorStop(1, col.length === 7 ? col + "26" : col); ctx.fillStyle = gr3; } roundRect(ctx, x, T + ph - h, w, h, Math.min(8, w / 2, h / 2)); ctx.fill();
         ctx.fillStyle = TXT(); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.font = "600 11px Helvetica"; ctx.fillText(n, x + w / 2, T + ph - h - 3);
         ctx.fillStyle = ax; ctx.font = "10px Helvetica"; ctx.textBaseline = "top"; ctx.fillText(l, x + w / 2, T + ph + 7); }); } } }
 }
@@ -1459,17 +1473,29 @@ async function trustEvaluate(opts = {}) {
   $("#tRun").disabled = false; trustProfiles();
 }
 $("#tRun").onclick = () => trustEvaluate();
+const CHECK_ICON = { signal_integrity: "wave", speaker_verification: "user", anti_spoofing: "mic", same_speaker: "compare", content_safety: "text", transcript_consistency: "doc", reverb_consistency: "coverage" };
+function gaugeSVG(v, col) {
+  const R = 80, cx = 100, cy = 100, L = Math.PI * R, f = v == null ? 0 : Math.max(0, Math.min(1, v));
+  const ticks = Array.from({ length: 41 }, (_, i) => { const a = Math.PI * (1 - i / 40), r1 = 94, r2 = i % 5 ? 98 : 101; return `<line x1="${cx + r1 * Math.cos(a)}" y1="${cy - r1 * Math.sin(a)}" x2="${cx + r2 * Math.cos(a)}" y2="${cy - r2 * Math.sin(a)}" stroke="currentColor" stroke-opacity="${i / 40 <= f ? .55 : .15}" stroke-width="1.2"/>`; }).join("");
+  return `<svg viewBox="0 0 200 112" aria-hidden="true" style="color:var(--text-3)"><defs><linearGradient id="gg" x1="0" x2="1"><stop offset="0" stop-color="${col}" stop-opacity=".35"/><stop offset="1" stop-color="${col}"/></linearGradient></defs>${ticks}
+    <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="var(--track)" stroke-width="14" stroke-linecap="round"/>
+    <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="url(#gg)" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(L * f).toFixed(1)} ${L.toFixed(1)}"/></svg>`;
+}
 function renderTrust(d) {
   const dec = d.decision, lvl = d.level, t = d.trust;
-  $("#tResSub").textContent = `${t.required_layers.length} required layer${t.required_layers.length === 1 ? "" : "s"} · ${d.elapsed_ms >= 1000 ? (d.elapsed_ms / 1000).toFixed(1) + " s" : Math.round(d.elapsed_ms) + " ms"}`;
-  $("#tResBody").innerHTML = `<div class="decision d-${dec}"><div class="body"><div class="top"><span class="big g-${dec}">${dec.toUpperCase()}</span><span class="lvl ${lvl}">${lvl}</span><span class="meta">overall trust ${t.overall == null ? "—" : t.overall.toFixed(2)}</span></div><h2>${esc(headline(d))}</h2><p>${esc(d.reason)}</p><div class="next"><b>Next step.</b> ${esc(DEC_NEXT[dec])}</div></div></div>`;
-  const sig = t.signals, order = ["L1", "L2", "L3", "L4"];
-  $("#tTupleSub").textContent = `${sig.filter(s => s.assessable).length} of ${sig.length} assessed · required ${t.required_layers.join(", ")}`;
+  const DCOL = { allow: "var(--ok)", confirm: "var(--warn)", block: "var(--bad)" };
   const bandCol = b => b === "clean" ? "var(--ok)" : b === "suspect" ? "var(--warn)" : b === "hostile" ? "var(--bad)" : "var(--na)";
   const bandLvl = b => b === "clean" ? "trusted" : b === "unassessed" ? "unverified" : b;
+  $("#tResult").classList.add("has");
+  $("#tResSub").textContent = `${t.required_layers.length} required layer${t.required_layers.length === 1 ? "" : "s"} · ${d.elapsed_ms >= 1000 ? (d.elapsed_ms / 1000).toFixed(1) + " s" : Math.round(d.elapsed_ms) + " ms"}`;
+  $("#tResBody").innerHTML = `<div class="decision d-${dec}"><div class="body"><div class="word">${dec[0].toUpperCase() + dec.slice(1)}</div><div class="top"><span class="lvl ${lvl}">${lvl}</span><span class="meta">${esc(d.action || "")}</span></div><h2>${esc(headline(d))}</h2><p>${esc(d.reason)}</p><div class="next"><b>Next step.</b> ${esc(DEC_NEXT[dec])}</div></div>
+    <div class="gauge">${gaugeSVG(t.overall, DCOL[dec])}<div class="gv">${t.overall == null ? "—" : t.overall.toFixed(2)}</div><div class="gl">overall trust</div></div></div>`;
+  const sig = t.signals, order = ["L1", "L2", "L3", "L4"];
+  $("#tTupleSub").textContent = `${sig.filter(s => s.assessable).length} of ${sig.length} assessed · required ${t.required_layers.join(", ")}`;
   $("#tLayersEmpty").classList.add("hidden");
-  $("#tLayers").innerHTML = `<div class="lrow head"><span>Check</span><span>Result</span><span>Detail</span><span style="text-align:right">Trust</span></div>` +
-    order.flatMap(L => sig.filter(s => s.layer === L)).map(s => `<div class="lrow ${s.band}"><div class="nm"><b>${esc(CHECK_NAMES[s.name] || LAYER_NAMES[s.layer])}</b><span>${s.layer} · ${esc(LAYER_NAMES[s.layer])}</span></div><div class="st"><span class="lvl ${bandLvl(s.band)}">${s.band === "unassessed" ? "not run" : s.band}</span></div><div class="dt">${esc(s.detail)}${evidenceLine(s)}</div><div class="sc">${s.trust == null ? '<span class="faint">—</span>' : `<i><u style="width:${s.trust * 100}%;background:${bandCol(s.band)}"></u></i>${s.trust.toFixed(2)}`}</div></div>`).join("");
+  $("#tLayers").innerHTML = order.flatMap(L => sig.filter(s => s.layer === L)).map(s => `<div class="lrow ${s.band}"><div class="ic">${icon(CHECK_ICON[s.name] || "info")}</div>
+    <div class="nm"><div class="t"><b>${esc(CHECK_NAMES[s.name] || LAYER_NAMES[s.layer])}</b><span class="lvl ${bandLvl(s.band)}">${s.band === "unassessed" ? "not run" : s.band}</span><span class="ly">${s.layer} · ${esc(LAYER_NAMES[s.layer])}</span></div><div class="dt">${esc(s.detail)}${evidenceLine(s)}</div></div>
+    <div class="sc">${s.trust == null ? '<b class="faint">—</b>' : `<b>${s.trust.toFixed(2)}</b><i><u style="width:${s.trust * 100}%;background:${bandCol(s.band)}"></u></i>`}</div></div>`).join("");
 }
 function headline(d) { const l = d.level; return l === "trusted" ? "Command is consistent with the enrolled, present user" : l === "unverified" ? "Could not fully verify who gave this command" : l === "suspect" ? "Something about this command does not add up" : "This command is not the user's"; }
 function evidenceLine(s) {

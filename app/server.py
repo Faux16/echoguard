@@ -365,6 +365,8 @@ async def fleet(days: int = 30) -> dict:
         "latency_ms": {"p50": ms[len(ms) // 2], "p95": ms[int(len(ms) * .95) - 1 if len(ms) > 1 else 0], "max": ms[-1]} if ms else None,
         "gates": gates,
         "mean_risk": (sum(float(r["risk"] or 0) for r in scored) / len(scored)) if scored else None,
+        "timeline": [[round(r["ts"], 1), r["verdict"], None if r["risk"] is None else round(float(r["risk"]), 3)]
+                     for r in sorted((r for r in rows if r["verdict"] in VERDICTS), key=lambda r: r["ts"])[-600:]],
         "recent_flagged": [
             {k: r[k] for k in ("ts", "client", "file", "verdict", "risk", "sr", "carrier", "sideband", "oob")}
             for r in sorted(flagged, key=lambda r: -r["ts"])[:12]
