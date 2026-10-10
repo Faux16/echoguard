@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/console.css?v=21">
+<link rel="stylesheet" href="/static/console.css?v=22">
 <script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
 </head>
 <body>
@@ -179,6 +179,23 @@
         <div class="card" style="margin-top:var(--gap)"><div class="card-h"><h3>Differences</h3></div><div class="card-b tablewrap" id="cmpDiff"></div></div>
       </section>
 
+      <!-- REVIEW QUEUE -->
+      <section class="view" id="v-queue">
+        <div class="pagehead"><div><h1>Review queue</h1><div class="sub" id="qSub">Every flagged capture is a work item: triage it, investigate, resolve it with an outcome, and group related ones into an incident.</div></div>
+          <div class="acts"><div class="seg" id="qScope"><button data-s="open" class="on">Open</button><button data-s="mine">Assigned to me</button><button data-s="all">All</button></div><button class="btn" id="qGroup" disabled><span class="ico-slot" data-ico="incident"></span>Group into incident</button></div></div>
+        <div class="kpis five" id="qKpis"></div>
+        <div class="qgrid">
+          <div class="qmain">
+            <div class="board" id="qBoard"></div>
+            <div class="secthead"><h2>Incidents</h2><span>related captures handled together, with a response checklist</span></div>
+            <div class="incs" id="qIncs"></div>
+            <div class="secthead"><h2>Known-source rules</h2><span>learned from false positives · future matches are pre-labelled, never auto-cleared</span></div>
+            <div class="card"><div class="card-b" id="qRules"></div></div>
+          </div>
+          <div class="card qdrawer" id="qDrawer"></div>
+        </div>
+      </section>
+
       <!-- HISTORY -->
       <section class="view" id="v-history">
         <div class="pagehead"><div><h1>History</h1><div class="sub" id="hSub">Stored locally in this browser</div></div>
@@ -320,9 +337,10 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
 <div class="toasts" id="toasts"></div>
 <div id="paletteMount"></div>
 <input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
-<script src="/static/help.js?v=21"></script>
-<script src="/static/console.js?v=21"></script>
-<script src="/static/history.js?v=21"></script>
-<script src="/static/demo.js?v=21"></script>
+<script src="/static/help.js?v=22"></script>
+<script src="/static/console.js?v=22"></script>
+<script src="/static/history.js?v=22"></script>
+<script src="/static/triage.js?v=22"></script>
+<script src="/static/demo.js?v=22"></script>
 </body>
 </html>

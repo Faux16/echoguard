@@ -7,7 +7,7 @@
    Nothing is written to browser storage while demo mode is on. A server in field-test mode still retains the scans the demo triggers. */
 "use strict";
 
-const Demo = { on: false, real: null, hist: null };
+const Demo = { on: false, real: null, hist: null, tq: null };
 
 /* ------------------------------------------------------------ deterministic random */
 function demoRng(seed) { let a = seed >>> 0; return () => { a += 0x6d2b79f5; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -108,6 +108,7 @@ const DEMO_TRUST = {"decision":"block","sensitivity":"critical","level":"hostile
 const DEMO_TOUR = [
   ["exec", "Fleet posture", "How many commands were screened, what was flagged, and where."],
   ["trust", "Trust gate", "Watch the gate block an injected command and explain why. Try the scenarios."],
+  ["queue", "Review queue", "Work the flagged captures: triage the mall beacon, finish the kiosk incident's checklist, teach a false positive."],
   ["live", "Live monitor", "A simulated stream: speech, then an injection burst every 30 s."],
   ["analyze", "Signal analysis", "Open a flagged capture and see the carrier the engine found."],
   ["policies", "Gate policies", "Decide what the agent does for each risk level, then dry-run it."],
@@ -128,7 +129,7 @@ function renderDemoStrip() {
 async function enableDemo(quiet) {
   Demo.on = true; if (!Demo.real) Demo.real = history;
   history = [];
-  try { Demo.hist = Demo.hist || await demoHistory(); history = Demo.hist.slice(); }
+  try { Demo.hist = Demo.hist || await demoHistory(); history = Demo.hist.slice(); Demo.tq = null; }
   catch (e) { if (!quiet) toast("Demo captures need the engine: " + e.message, "bad", 5000); }
   if (!batch.rows.some(r => r.demo)) {
     const pickB = history.filter((_, i) => i % 2 === 0).slice(0, 10);
@@ -137,7 +138,10 @@ async function enableDemo(quiet) {
   trust.last = null;
 }
 async function disableDemo() {
-  Demo.on = false; batch.rows = batch.rows.filter(r => !r.demo);
+  Demo.on = false; batch.rows = batch.rows.filter(r => !r.demo); Demo.tq = null;
+  // a policy the demo applied is undone, even across reloads
+  let prev = null; try { prev = JSON.parse(localStorage.getItem("eg.demo.prevPolicy") || "null"); localStorage.removeItem("eg.demo.prevPolicy"); } catch { prev = null; }
+  if (prev) { prefs.policy = prev.policy; prefs.policyName = prev.name; savePrefs(); renderFootPolicy(); }
   if (live.sim && Demo.autoSim) stopLive();
   history = Demo.real || []; Demo.real = null; await loadHistory();
   trust.last = null; $("#tResBody").innerHTML = `<div class="empty"><b>No evaluation yet</b>Choose or record a command, type what the agent heard, pick the action's sensitivity, and evaluate. Or run the demo.</div>`;
@@ -188,7 +192,7 @@ renderSettings = function () {
   _renderSettings();
   const el = $("#setDemo"); if (!el) return;
   el.innerHTML = settingRow("Show demo data", "Fills every view with illustrative data for walking someone through the platform. Your own browser history is set aside and nothing is saved to it while demo mode is on. If the server is in field-test mode, the scans the demo runs are still retained there.", `<div class="toggle${prefs.demo ? " on" : ""}" id="demoToggle"></div>`)
-    + `<div class="demofacts"><div><b>Executive summary</b>A generated 30-day fleet with six sources and one incident. Illustrative, not measured.</div><div><b>Captures</b>22 synthesised captures at varied carriers and strengths, each scored by the real engine.</div><div><b>Trust gate</b>Opens on a decision the engine actually returned. Scenarios run for real.</div><div><b>Live monitor</b>Starts the simulated stream automatically.</div></div>`;
+    + `<div class="demofacts"><div><b>Executive summary</b>A generated 30-day fleet with six sources and one incident. Illustrative, not measured.</div><div><b>Captures</b>22 synthesised captures at varied carriers and strengths, each scored by the real engine.</div><div><b>Trust gate</b>Opens on a decision the engine actually returned. Scenarios run for real.</div><div><b>Review queue</b>A queue worked for a few days: one open incident, resolved lab tests, one item waiting for triage.</div></div>`;
   $("#demoToggle").onclick = () => setDemo(!prefs.demo);
 };
 const _paletteItems = paletteItems;

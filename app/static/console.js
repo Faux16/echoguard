@@ -30,6 +30,11 @@ const ICONS = {
   api: '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/>',
   exec: '<path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/>',
   trust: '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
+  queue: '<path d="M4 13l2.5-7.5A2 2 0 0 1 8.4 4h7.2a2 2 0 0 1 1.9 1.5L20 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 13h4l1.5 3h5L16 13h4"/>',
+  incident: '<path d="M12 3l10 18H2z"/><path d="M12 10v4M12 17h.01"/>',
+  user2: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
+  note: '<path d="M4 4h16v12H8l-4 4z"/>',
+  rule: '<path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="2"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   upload: '<path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
   download: '<path d="M12 4v12m0 0l-4-4m4 4l4-4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
@@ -200,8 +205,8 @@ function renderARecent() {
 /* ============================================================ navigation */
 const NAV = [
   { g: "Overview" }, { v: "exec", l: "Executive summary", k: "1" }, { v: "overview", l: "Activity", k: "2" },
-  { g: "Protect" }, { v: "trust", l: "Trust gate", k: "3" }, { v: "policies", l: "Gate policies", k: "4" }, { v: "live", l: "Live monitor", k: "5", badge: true },
-  { g: "Investigate" }, { v: "analyze", l: "Signal analysis", k: "6" }, { v: "batch", l: "Batch screening", k: "7" }, { v: "history", l: "History", k: "8" }, { v: "compare", l: "Compare", k: "9" },
+  { g: "Protect" }, { v: "trust", l: "Trust gate", k: "3" }, { v: "policies", l: "Gate policies", k: "4" }, { v: "live", l: "Live monitor", k: "5", badge: "liveBadge" },
+  { g: "Investigate" }, { v: "queue", l: "Review queue", k: "6", badge: "queueBadge" }, { v: "history", l: "History", k: "7" }, { v: "analyze", l: "Signal analysis", k: "8" }, { v: "batch", l: "Batch screening", k: "9" }, { v: "compare", l: "Compare" },
   { g: "Reference" }, { v: "coverage", l: "Coverage & limits" }, { v: "api", l: "API" },
   { g: "", pin: true }, { v: "settings", l: "Settings", k: "0" },
 ];
@@ -209,7 +214,7 @@ const VIEW_NAMES = Object.fromEntries(NAV.filter(n => n.v).map(n => [n.v, n.l]))
 function mountNav() {
   let h = ""; let open = false;
   NAV.forEach(n => { if (n.g !== undefined) { if (open) h += "</nav>"; h += n.pin ? `<nav class="nav pinned">` : `<div class="navgroup">${n.g}</div><nav class="nav">`; open = true; return; }
-    h += `<a data-v="${n.v}" title="${n.l}">${icon(n.v)}<span>${n.l}</span>${n.badge ? `<em class="badge hidden" id="liveBadge">0</em>` : ""}${n.k ? `<span class="kbd">${n.k}</span>` : ""}</a>`; });
+    h += `<a data-v="${n.v}" title="${n.l}">${icon(n.v)}<span>${n.l}</span>${n.badge ? `<em class="badge hidden" id="${n.badge}">0</em>` : ""}${n.k ? `<span class="kbd">${n.k}</span>` : ""}</a>`; });
   $("#navmount").innerHTML = h + "</nav>";
   $$(".nav a").forEach(a => a.onclick = () => go(a.dataset.v));
 }
@@ -233,6 +238,7 @@ function go(v, opts = {}) {
   if (v === "settings") renderSettings();
   if (v === "api") apiPing();
   if (v === "trust") trustEnter();
+  if (v === "queue" && window.renderQueue) renderQueue();
   if (!opts.silent) { try { window.history.replaceState(null, "", "#" + v); } catch { /* file: */ } }
   window.scrollTo({ top: 0 });
   requestAnimationFrame(redraw);
