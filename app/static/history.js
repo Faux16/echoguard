@@ -142,9 +142,22 @@ function hxAgree(H) {
 function hxTags(H) {
   const tags = new Map(); H.forEach(r => ((r.tags || []).length ? r.tags : ["(untagged)"]).forEach(t => { if (!tags.has(t)) tags.set(t, []); tags.get(t).push(r); }));
   const rows = [...tags.entries()].map(([t, rs]) => { const A = rs.filter(r => r.verdict !== "INSUFFICIENT_DATA" && r.risk != null); return { t, rs, n: rs.length, f: rs.filter(r => isFlag(r.verdict)).length, na: rs.length - A.length, mean: A.length ? A.reduce((a, r) => a + r.risk, 0) / A.length : null, peak: A.length ? Math.max(...A.map(r => r.risk)) : null }; }).sort((a, b) => b.f - a.f || b.n - a.n);
-  $("#hxTags").innerHTML = rows.length ? rows.map((x, i) => `<tr class="click" data-i="${i}"><td><span class="chip">${esc(x.t)}</span></td><td class="n">${x.n}</td><td class="n"${x.f ? ' style="color:var(--bad)"' : ""}>${x.f}</td><td class="n faint">${x.na || "—"}</td><td class="n">${x.mean == null ? "—" : x.mean.toFixed(2)}</td><td class="n">${x.peak == null ? "—" : rbar(x.peak, x.peak >= THR().high_risk ? "HIGH_RISK" : x.peak >= THR().suspicious_risk ? "SUSPICIOUS" : "CLEAR")}</td></tr>`).join("")
+  const LIM = 12, shown = HX.allTags ? rows : rows.slice(0, LIM);
+  $("#hxTagsMore").innerHTML = rows.length > LIM ? `<button class="btn sm ghost" id="hxTagsBtn">${HX.allTags ? "Show top " + LIM : `Show all ${rows.length} tags`}</button>` : "";
+  if (rows.length > LIM) $("#hxTagsBtn").onclick = () => { HX.allTags = !HX.allTags; hxTags(history); };
+  $("#hxTags").innerHTML = rows.length ? shown.map((x, i) => `<tr class="click" data-i="${i}"><td><span class="chip">${esc(x.t)}</span></td><td class="n">${x.n}</td><td class="n"${x.f ? ' style="color:var(--bad)"' : ""}>${x.f}</td><td class="n faint">${x.na || "—"}</td><td class="n">${x.mean == null ? "—" : x.mean.toFixed(2)}</td><td class="n">${x.peak == null ? "—" : rbar(x.peak, x.peak >= THR().high_risk ? "HIGH_RISK" : x.peak >= THR().suspicious_risk ? "SUSPICIOUS" : "CLEAR")}</td></tr>`).join("")
     : `<tr><td colspan="6"><div class="empty">No captures yet.</div></td></tr>`;
   $$("#hxTags tr[data-i]").forEach(tr => tr.onclick = () => { const x = rows[+tr.dataset.i]; setFacet(`tag: ${x.t}`, r => x.rs.includes(r)); });
+}
+function hxPol(H) {
+  const P = activePolicy(), K = ["allow", "confirm", "block"], C = { allow: "--ok", confirm: "--warn", block: "--bad" };
+  $("#hxPolSub").textContent = `${prefs.policy ? prefs.policyName : "default"} gate policy · ${H.length} captures`;
+  $("#hxPol").innerHTML = `<div class="polrows">${["routine", "sensitive", "critical"].map(s => { const n = Object.fromEntries(K.map(k => [k, H.filter(r => P[s]?.[r.verdict] === k).length]));
+    return `<div class="pr"><div class="pl"><b>${s[0].toUpperCase() + s.slice(1)}</b><span>${s === "routine" ? "weather, timers" : s === "sensitive" ? "messages, settings" : "unlock, payments"}</span></div>
+      <div class="pb">${K.map(k => n[k] ? `<button class="seg-${k}" data-s="${s}" data-k="${k}" style="flex:${n[k]};background:var(${C[k]})" title="${n[k]} ${k}">${n[k]}</button>` : "").join("")}</div>
+      <div class="pn">${K.map(k => `<span><i style="background:var(${C[k]})"></i>${n[k]}</span>`).join("")}</div></div>`; }).join("")}</div>
+    <div class="legend" style="margin-top:14px">${K.map(k => `<span><i style="background:var(${C[k]})"></i>${k}</span>`).join("")}<span class="faint">click a segment to see those captures</span></div>`;
+  $$("#hxPol .pb button").forEach(b => b.onclick = () => setFacet(`${b.dataset.s} → ${b.dataset.k}`, r => P[b.dataset.s]?.[r.verdict] === b.dataset.k));
 }
 function renderHistAnalysis() {
   const H = history; $("#hxWrap").classList.toggle("hidden", !H.length); $("#hExplorer").classList.toggle("hidden", !H.length);
@@ -152,7 +165,7 @@ function renderHistAnalysis() {
   const ins = hxInsights(H);
   $("#hxIns").innerHTML = ins.map((x, i) => `<button class="ins ins-${x.k}" data-i="${i}"${x.f ? "" : " disabled"}><span class="ii">${icon(x.i)}</span><span class="it"><b>${esc(x.t)}</b><span>${esc(x.d)}</span></span>${x.f ? icon("back", "ico go") : ""}</button>`).join("");
   $$("#hxIns .ins").forEach(b => b.onclick = () => ins[+b.dataset.i].f?.());
-  hxBind(); hxMap(); hxTime(H); hxDist(H); hxCar(H); hxAgree(H); hxTags(H);
+  hxBind(); hxMap(); hxTime(H); hxDist(H); hxCar(H); hxAgree(H); hxPol(H); hxTags(H);
 }
 const _hxRedraw = redraw;
 redraw = function () { _hxRedraw(); if (currentView === "history" && history.length) { hxMap(); hxTime(history); hxDist(history); hxCar(history); } };

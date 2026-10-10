@@ -571,3 +571,22 @@ tbody tr.click{cursor:pointer} tbody tr:hover td{background:var(--hover)}
 @media(max-width:1320px){.bento.hx .span7,.bento.hx .span5{grid-column:1/-1}.bento.hx .span4{grid-column:span 6}.bento.hx .hx-car{grid-column:1/-1}}
 @media(max-width:1080px){.bento.hx .span4{grid-column:1/-1}}
 @media(max-width:760px){.bento.hx .span4{grid-column:1/-1}.agree{grid-template-columns:1fr}#hxMap{height:260px}}
+.hxcol{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
+.hxcol>.card.grow{flex:1;display:flex;flex-direction:column} .hxcol>.card.grow>.card-b{flex:1}
+.hxtags td{padding-top:9px;padding-bottom:9px}
+#hxTagsMore{padding:8px var(--card-pad) 4px;border-top:1px solid var(--hair)} #hxTagsMore:empty{display:none}
+.polrows{display:flex;flex-direction:column;gap:14px}
+.pr{display:grid;grid-template-columns:130px minmax(0,1fr) 140px;gap:16px;align-items:center}
+.pl b{display:block;font-size:13px;font-weight:500} .pl span{font-size:11.5px;color:var(--text-3)}
+.pb{display:flex;gap:3px;height:30px;border-radius:var(--r-sm);overflow:hidden;background:var(--track)}
+.pb button{border:0;min-width:26px;color:#0b0b10;font:600 11.5px var(--font);cursor:pointer;opacity:.88;transition:opacity .15s} .pb button:hover{opacity:1}
+.pn{display:flex;gap:12px;justify-content:flex-end;font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums} .pn i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
+@media(max-width:760px){.pr{grid-template-columns:1fr}.pn{justify-content:flex-start}}
+/* explorer: list and detail share one viewport-height pane, each scrolls inside */
+.hgrid{align-items:stretch}
+.hlist-card,.hdetail{height:max(560px,calc(100vh - 110px))}
+.hlist-card{display:flex;flex-direction:column} .hlist-card .hlist{flex:1;max-height:none;min-height:0}
+.hdetail{position:relative;top:auto;max-height:none}
+@media(max-width:1180px){.hlist-card{height:auto}.hlist-card .hlist{max-height:70vh}.hdetail{height:auto}}
+.hx-mapcard{display:flex;flex-direction:column} .hx-mapcard>.card-b{flex:1;display:flex;flex-direction:column}
+.hx-mapcard .hxmap{flex:1;min-height:300px;position:relative} .hx-mapcard #hxMap{position:absolute;inset:0;height:100%}

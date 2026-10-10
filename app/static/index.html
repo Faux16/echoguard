@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/console.css?v=20">
+<link rel="stylesheet" href="/static/console.css?v=21">
 <script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
 </head>
 <body>
@@ -185,13 +185,16 @@
           <div class="acts"><button class="btn ghost" id="hExport"><span class="ico-slot" data-ico="download"></span>Export JSON</button><button class="btn ghost" id="hCsv"><span class="ico-slot" data-ico="download"></span>CSV</button><button class="btn danger" id="hClear">Clear history</button></div></div>
         <div class="kpis" id="hkpis"></div>
         <div class="bento hx" id="hxWrap">
-          <div class="card span7"><div class="card-h"><h3>Decision map</h3><span class="sub">each assessable capture, placed by its two detector risks · click a point</span></div><div class="card-b"><div class="hxmap"><canvas id="hxMap" class="cv"></canvas><div class="cvtip hidden" id="hxTip"></div></div><div class="legend" id="hxMapLeg"></div></div></div>
+          <div class="card span7 hx-mapcard"><div class="card-h"><h3>Decision map</h3><span class="sub">each assessable capture, placed by its two detector risks · click a point</span></div><div class="card-b"><div class="hxmap"><canvas id="hxMap" class="cv"></canvas><div class="cvtip hidden" id="hxTip"></div></div><div class="legend" id="hxMapLeg"></div></div></div>
           <div class="card span5"><div class="card-h"><h3>Findings</h3><span class="sub">what stands out · click to filter the captures</span></div><div class="card-b"><div class="insights" id="hxIns"></div></div></div>
           <div class="card span4"><div class="card-h"><h3>Over time</h3><span class="sub" id="hxTimeSub"></span></div><div class="card-b"><canvas id="hxTime" class="cv" style="height:160px"></canvas></div></div>
           <div class="card span4"><div class="card-h"><h3>Risk distribution</h3><span class="sub" id="hxDistSub"></span></div><div class="card-b"><canvas id="hxDist" class="cv" style="height:160px"></canvas></div></div>
           <div class="card span4 hx-car"><div class="card-h"><h3>Tonal peaks above 15 kHz</h3><span class="sub" id="hxCarSub"></span></div><div class="card-b"><canvas id="hxCar" class="cv" style="height:160px"></canvas></div></div>
-          <div class="card span6"><div class="card-h"><h3>Detector agreement</h3><span class="sub">a capture is flagged only when both signatures are present</span></div><div class="card-b" id="hxAgree"></div></div>
-          <div class="card span6"><div class="card-h"><h3>By tag</h3><span class="sub">click a tag to filter</span></div><div class="card-b tablewrap"><table><thead><tr><th>Tag</th><th class="n">Captures</th><th class="n">Flagged</th><th class="n">Not assessed</th><th class="n">Mean R</th><th class="n">Peak R</th></tr></thead><tbody id="hxTags"></tbody></table></div></div>
+          <div class="span6 hxcol">
+            <div class="card"><div class="card-h"><h3>Detector agreement</h3><span class="sub">a capture is flagged only when both signatures are present</span></div><div class="card-b" id="hxAgree"></div></div>
+            <div class="card grow"><div class="card-h"><h3>If these were commands</h3><span class="sub" id="hxPolSub"></span></div><div class="card-b" id="hxPol"></div></div>
+          </div>
+          <div class="span6 hxcol"><div class="card grow"><div class="card-h"><h3>By tag</h3><span class="sub">click a tag to filter</span></div><div class="card-b tablewrap hxtags"><table><thead><tr><th>Tag</th><th class="n">Captures</th><th class="n">Flagged</th><th class="n">Not assessed</th><th class="n">Mean R</th><th class="n">Peak R</th></tr></thead><tbody id="hxTags"></tbody></table><div id="hxTagsMore"></div></div></div></div>
         </div>
         <div class="secthead" id="hExplorer"><h2>Captures</h2><span>select one for its full breakdown · double-click to open the analysis</span></div>
         <div class="hgrid">
@@ -317,9 +320,9 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
 <div class="toasts" id="toasts"></div>
 <div id="paletteMount"></div>
 <input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
-<script src="/static/help.js?v=20"></script>
-<script src="/static/console.js?v=20"></script>
-<script src="/static/history.js?v=20"></script>
-<script src="/static/demo.js?v=20"></script>
+<script src="/static/help.js?v=21"></script>
+<script src="/static/console.js?v=21"></script>
+<script src="/static/history.js?v=21"></script>
+<script src="/static/demo.js?v=21"></script>
 </body>
 </html>
