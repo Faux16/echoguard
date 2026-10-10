@@ -160,10 +160,13 @@ async function saveCapture(rec) {
 }
 
 /* ============================================================ engine */
+/* synthetic audio (built-in samples, the simulated stream, anything in demo mode) is marked so a field-test server does not retain it */
+const isSynthetic = name => (typeof Demo !== "undefined" && Demo.on) || Object.values(DEMO_NAMES).includes(name) || name === "sim.wav";
+const synthHeaders = name => isSynthetic(name) ? { "X-EchoGuard-Synthetic": "1" } : {};
 async function scanBlob(blob, name, win = prefs.window, hop = prefs.hop) {
   const fd = new FormData();
   fd.append("file", blob, name || "clip.wav"); fd.append("window", win); fd.append("hop", hop);
-  const r = await fetch("/api/scan", { method: "POST", body: fd });
+  const r = await fetch("/api/scan", { method: "POST", body: fd, headers: synthHeaders(name) });
   if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.detail || r.statusText); }
   return r.json();
 }
@@ -760,7 +763,7 @@ $$(".gopt").forEach(o => o.onclick = () => $$(".gopt").forEach(x => x.classList.
 async function gateCall(blob, name, action, policy) {
   const fd = new FormData(); fd.append("file", blob, name || "clip.wav"); fd.append("action", action); fd.append("window", prefs.window); fd.append("hop", prefs.hop);
   if (policy) fd.append("policy", JSON.stringify(policy));
-  const r = await fetch("/api/gate", { method: "POST", body: fd }); const d = await r.json();
+  const r = await fetch("/api/gate", { method: "POST", body: fd, headers: synthHeaders(name) }); const d = await r.json();
   if (!r.ok) throw new Error(d.detail || r.statusText); return d;
 }
 $("#gateBtn").onclick = async () => {
@@ -970,12 +973,12 @@ $("#simBtn").onclick = () => {
   stopLive(); resetLive(); let k = 0;
   setLiveState(true, "Simulated stream", "48.0 kHz");
   $("#lNote").textContent = "Synthetic audio: speech, with an injected carrier around 12–15 s and a beacon at 22 s of every 30 s. Scored by the real engine.";
-  const tick = () => { const p = k % 30, kind = p >= 12 && p <= 15 ? "attack" : p === 22 ? "beacon" : "benign"; const { sr, x } = demoAudio(kind, 1.0, 1000 + k); k++; if (!live.busy) liveScore(x, sr); };
+  const tick = () => { const p = k % 30, kind = p >= 12 && p <= 15 ? "attack" : p === 22 ? "beacon" : "benign"; const { sr, x } = demoAudio(kind, 1.0, 1000 + k); k++; if (!live.busy) liveScore(x, sr, "sim.wav"); };
   tick(); live.sim = setInterval(tick, 1000);
 };
-async function liveScore(x, sr) {
+async function liveScore(x, sr, name = "live.wav") {
   live.busy = true;
-  try { const blob = encodeWAV(x, sr), d = await scanBlob(blob, "live.wav", "0", "0.5"); if (live.mic || live.sim) liveAdd(d, blob); }
+  try { const blob = encodeWAV(x, sr), d = await scanBlob(blob, name, "0", "0.5"); if (live.mic || live.sim) liveAdd(d, blob); }
   catch (e) { $("#lNote").textContent = "Scan failed: " + e.message; }
   live.busy = false;
 }
@@ -1471,7 +1474,7 @@ async function trustEvaluate(opts = {}) {
   const pid = opts.profile === undefined ? $("#tProfile").value : opts.profile; if (pid) fd.append("profile_id", pid);
   const req = opts.required || $$(".tReq:checked").map(c => c.value).join(","); if (req) fd.append("required_layers", req);
   $("#tErr").textContent = ""; $("#tRun").disabled = true; $("#tResSub").innerHTML = `<span class="spin"></span> evaluating — the first run loads the speech models (up to a few minutes)`;
-  try { const r = await fetch("/api/trust", { method: "POST", body: fd }); const d = await r.json(); if (!r.ok) throw new Error(d.detail || r.statusText); trust.last = d; renderTrust(d); }
+  try { const r = await fetch("/api/trust", { method: "POST", body: fd, headers: synthHeaders(opts.name || trust.name) }); const d = await r.json(); if (!r.ok) throw new Error(d.detail || r.statusText); trust.last = d; renderTrust(d); }
   catch (e) { $("#tErr").textContent = e.message; $("#tResSub").textContent = "failed"; }
   $("#tRun").disabled = false; trustProfiles();
 }
@@ -1491,7 +1494,7 @@ function renderTrust(d) {
   const bandLvl = b => b === "clean" ? "trusted" : b === "unassessed" ? "unverified" : b;
   $("#tResult").classList.add("has");
   $("#tResSub").textContent = `${t.required_layers.length} required layer${t.required_layers.length === 1 ? "" : "s"} · ${d.elapsed_ms >= 1000 ? (d.elapsed_ms / 1000).toFixed(1) + " s" : Math.round(d.elapsed_ms) + " ms"}`;
-  $("#tResBody").innerHTML = `<div class="decision d-${dec}"><div class="body"><div class="word">${dec[0].toUpperCase() + dec.slice(1)}</div><div class="top"><span class="lvl ${lvl}">${lvl}</span><span class="meta">${esc(d.action || "")}</span></div><h2>${esc(headline(d))}</h2><p>${esc(d.reason)}</p><div class="next"><b>Next step.</b> ${esc(DEC_NEXT[dec])}</div></div>
+  $("#tResBody").innerHTML = `<div class="decision d-${dec}"><div class="body"><div class="word">${dec[0].toUpperCase() + dec.slice(1)}</div><div class="top"><span class="lvl ${lvl}">${lvl}</span><span class="meta">${esc(d.sensitivity ? d.sensitivity + " action" : "")}</span></div><h2>${esc(headline(d))}</h2><p>${esc(d.reason)}</p><div class="next"><b>Next step.</b> ${esc(DEC_NEXT[dec])}</div></div>
     <div class="gauge">${gaugeSVG(t.overall, DCOL[dec])}<div class="gv">${t.overall == null ? "—" : t.overall.toFixed(2)}</div><div class="gl">overall trust</div></div></div>`;
   const sig = t.signals, order = ["L1", "L2", "L3", "L4"];
   $("#tTupleSub").textContent = `${sig.filter(s => s.assessable).length} of ${sig.length} assessed · required ${t.required_layers.join(", ")}`;
@@ -1547,6 +1550,7 @@ $("#moreBtn").innerHTML = icon("more");
   $("#wsName").innerHTML = `${icon("monitor")}${esc(location.hostname === "127.0.0.1" || location.hostname === "localhost" || !location.hostname ? "Local workspace" : location.host)}`;
   mountNav(); fillIcons(); mountHelp(); applyTheme(); applyRail();
   await Promise.all([health(), loadHistory()]);
+  if (window.demoBoot) await window.demoBoot();
   resetLive(); renderBatch();
   const want = location.hash.replace("#", "") || "exec";
   go(VIEW_NAMES[want] ? want : "overview", { silent: true });

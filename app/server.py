@@ -121,8 +121,8 @@ def _read_upload(upload: UploadFile) -> tuple[np.ndarray, int, bytes]:
 
 def _retain(kind: str, request: Request, filename: Optional[str], raw: bytes, result: dict) -> Optional[str]:
     """Write the upload and a light copy of its result to CAPTURE_DIR (if enabled)."""
-    if not CAPTURE_DIR:
-        return None
+    if not CAPTURE_DIR or request.headers.get("x-echoguard-synthetic") == "1":
+        return None                                   # synthetic audio (samples, simulated stream, demo mode) is never retained
     os.makedirs(CAPTURE_DIR, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%f")[:-3] + "Z"
     client = (request.client.host if request.client else "unknown").replace(":", "_")

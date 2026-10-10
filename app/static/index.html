@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/console.css?v=17">
+<link rel="stylesheet" href="/static/console.css?v=18">
 <script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
 </head>
 <body>
@@ -24,7 +24,7 @@
   <div class="content">
     <header class="appbar">
       <button class="iconbtn" id="railBtn" title="Toggle sidebar ( [ )" aria-label="Toggle sidebar"></button>
-      <span class="ws" id="wsName" title="Engine host">—</span><span class="envb" id="envBadge"><i></i><span>Connecting</span></span><span class="vsep"></span>
+      <span class="ws" id="wsName" title="Engine host">—</span><span class="envb" id="envBadge"><i></i><span>Connecting</span></span><span class="envb demo hidden" id="demoBadge"><i></i><span>Demo data</span></span><span class="vsep"></span>
       <div class="crumbs"><b id="crumbView">Overview</b><span class="sep hidden" id="crumbSep">/</span><span class="file" id="crumbFile"></span></div>
       <div class="spacer"></div>
       <div class="search" id="searchBtn"><span class="ico-slot"></span><span>Search or jump to…</span><span class="kbd">⌘K</span></div>
@@ -33,6 +33,7 @@
     </header>
 
     <main id="main">
+      <div class="demostrip hidden" id="demoStrip"></div>
       <!-- EXECUTIVE -->
       <section class="view" id="v-exec">
         <div class="pagehead"><div><h1>Executive summary</h1><div class="sub" id="exSub">Screening activity and outcomes across every source that used this server</div></div>
@@ -277,6 +278,7 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
       <!-- SETTINGS -->
       <section class="view" id="v-settings">
         <div class="pagehead"><div><h1>Settings</h1><div class="sub">Preferences are stored in this browser</div></div></div>
+        <div class="card" style="margin-bottom:var(--gap)"><div class="card-h"><h3>Demo mode</h3><span class="sub">for walking someone through the platform</span></div><div class="card-b" id="setDemo"></div></div>
         <div class="grid2">
           <div class="stack">
             <div class="card"><div class="card-h"><h3>Appearance</h3></div><div class="card-b" id="setAppearance"></div></div>
@@ -296,7 +298,8 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
 <div class="toasts" id="toasts"></div>
 <div id="paletteMount"></div>
 <input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
-<script src="/static/help.js?v=17"></script>
-<script src="/static/console.js?v=17"></script>
+<script src="/static/help.js?v=18"></script>
+<script src="/static/console.js?v=18"></script>
+<script src="/static/demo.js?v=18"></script>
 </body>
 </html>
