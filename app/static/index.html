@@ -7,16 +7,15 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/console.css?v=15">
+<link rel="stylesheet" href="/static/console.css?v=22">
 <script>try{var t=localStorage.getItem('eg.theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;}catch(e){}</script>
 </head>
 <body>
 <div class="app" id="app">
   <aside class="rail" id="rail">
     <div class="brand">
-      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3d9bff"/><stop offset="1" stop-color="#7c6cff"/></linearGradient></defs>
-        <rect x="1" y="1" width="30" height="30" rx="9" fill="none" stroke="url(#lg)" stroke-width="1.6"/><path d="M8.5 16h2.4l2-5 3 10 2.2-7 1.4 2H23.5" fill="none" stroke="url(#lg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <div class="t"><b>EchoGuard</b><span>Injection analysis</span></div>
+      <svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><defs><linearGradient id="bm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b7bff"/><stop offset="1" stop-color="#3fe3c2"/></linearGradient></defs><rect width="40" height="40" rx="12" fill="url(#bm)"/><path d="M9 20h4l2.6-6.5 4.2 13 3.4-10 2.2 3.5H31" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="t"><b>EchoGuard</b><span>Voice agent trust</span></div>
     </div>
     <div id="navmount"></div>
     <div class="railfoot" id="engineCard"><span class="led" id="led"></span><div class="t"><b id="engState">Connecting…</b><span id="engSub">—</span></div></div>
@@ -25,7 +24,8 @@
   <div class="content">
     <header class="appbar">
       <button class="iconbtn" id="railBtn" title="Toggle sidebar ( [ )" aria-label="Toggle sidebar"></button>
-      <div class="crumbs"><span>Workspace</span><span class="sep">/</span><b id="crumbView">Overview</b><span class="sep hidden" id="crumbSep">/</span><span class="file" id="crumbFile"></span></div>
+      <span class="ws" id="wsName" title="Engine host">—</span><span class="envb" id="envBadge"><i></i><span>Connecting</span></span><span class="envb demo hidden" id="demoBadge"><i></i><span>Demo data</span></span><span class="vsep"></span>
+      <div class="crumbs"><b id="crumbView">Overview</b><span class="sep hidden" id="crumbSep">/</span><span class="file" id="crumbFile"></span></div>
       <div class="spacer"></div>
       <div class="search" id="searchBtn"><span class="ico-slot"></span><span>Search or jump to…</span><span class="kbd">⌘K</span></div>
       <button class="iconbtn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme"></button>
@@ -33,30 +33,33 @@
     </header>
 
     <main id="main">
+      <div class="demostrip hidden" id="demoStrip"></div>
       <!-- EXECUTIVE -->
       <section class="view" id="v-exec">
         <div class="pagehead"><div><h1>Executive summary</h1><div class="sub" id="exSub">Screening activity and outcomes across every source that used this server</div></div>
-          <div class="acts"><span class="pill" id="exSource"></span><div class="seg" id="exDays"><button data-d="7">7 d</button><button data-d="30" class="on">30 d</button><button data-d="90">90 d</button><button data-d="365">1 y</button></div><button class="btn ghost" id="exRefresh"><span class="ico-slot" data-ico="history"></span>Refresh</button><button class="btn primary" id="exPrint"><span class="ico-slot" data-ico="doc"></span>Print report</button></div></div>
-        <div class="kpis six" id="exKpis"></div>
-        <div class="exgrid">
-          <div class="card"><div class="card-h"><h3>Screenings per day</h3><span class="sub" id="exDaySub"></span></div><div class="card-b"><canvas id="exDay" class="cv" style="height:220px"></canvas><div class="legend" id="exDayLeg"></div></div></div>
-          <div class="card"><div class="card-h"><h3>Verdict mix</h3><span class="sub">share of all screenings</span></div><div class="card-b exmix"><canvas id="exDonut" class="cv"></canvas><div id="exMixList"></div></div></div>
+          <div class="acts"><div class="seg" id="exDays"><button data-d="7">7 d</button><button data-d="30" class="on">30 d</button><button data-d="90">90 d</button><button data-d="365">1 y</button></div><button class="btn" id="exRefresh"><span class="ico-slot" data-ico="history"></span>Refresh</button><button class="btn primary" id="exPrint"><span class="ico-slot" data-ico="doc"></span>Print report</button></div></div>
+        <div class="bento">
+          <div class="card ink exhero span8">
+            <div class="top"><span class="eyebrow">Screenings</span><span class="pill" id="exSource"></span></div>
+            <div class="big"><b id="exHeroN">—</b><span id="exHeroSub">—</span></div>
+            <canvas id="exCode" class="cv"></canvas>
+            <div class="legend" id="exDayLeg"></div>
+          </div>
+          <div class="card span4"><div class="card-h"><h3>Verdict mix</h3><span class="sub">share of all screenings</span></div><div class="card-b exmix"><canvas id="exDonut" class="cv"></canvas><div id="exMixList"></div></div></div>
+          <div class="kpis five span12" id="exKpis"></div>
+          <div class="card span6"><div class="card-h"><h3>Screenings per day</h3><span class="sub" id="exDaySub"></span></div><div class="card-b"><canvas id="exDay" class="cv" style="height:200px"></canvas></div></div>
+          <div class="card span6"><div class="card-h"><h3>Gate decisions</h3><span class="sub">agent evaluations</span></div><div class="card-b" id="exGates"></div></div>
+          <div class="card span6"><div class="card-h"><h3>Capture quality</h3><span class="sub">sample rates seen</span></div><div class="card-b"><canvas id="exRates" class="cv" style="height:170px"></canvas><div class="faint" id="exRateNote" style="font-size:12px;margin-top:10px"></div></div></div>
+          <div class="card span6"><div class="card-h"><h3>Detected carriers</h3><span class="sub">frequency of flagged carriers</span></div><div class="card-b"><canvas id="exCar" class="cv" style="height:170px"></canvas><div class="faint" id="exCarNote" style="font-size:12px;margin-top:10px"></div></div></div>
+          <div class="card span6"><div class="card-h"><h3>By source</h3><span class="sub" id="exSrcSub"></span></div><div class="card-b tablewrap"><table><thead><tr><th>Source</th><th class="n">Screenings</th><th class="n">Flagged</th><th class="n">Flag rate</th><th class="n">Could not assess</th><th class="n">Peak risk</th><th class="n">Last seen</th></tr></thead><tbody id="exSrcBody"></tbody></table></div></div>
+          <div class="card span6"><div class="card-h"><h3>Recent flagged captures</h3><span class="sub">newest first</span></div><div class="card-b tablewrap"><table><thead><tr><th>When</th><th>Source</th><th>File</th><th>Verdict</th><th class="n">Risk</th><th class="n">Carrier</th></tr></thead><tbody id="exFlagBody"></tbody></table></div></div>
+          <div class="card span12"><div class="card-h"><h3>Reading this report</h3></div><div class="card-b exnotes" id="exNotes"></div></div>
         </div>
-        <div class="exgrid3">
-          <div class="card"><div class="card-h"><h3>Capture quality</h3><span class="sub">sample rates seen</span></div><div class="card-b"><canvas id="exRates" class="cv" style="height:150px"></canvas><div class="faint" id="exRateNote" style="font-size:12px;margin-top:8px"></div></div></div>
-          <div class="card"><div class="card-h"><h3>Detected carriers</h3><span class="sub">frequency of flagged carriers</span></div><div class="card-b"><canvas id="exCar" class="cv" style="height:150px"></canvas><div class="faint" id="exCarNote" style="font-size:12px;margin-top:8px"></div></div></div>
-          <div class="card"><div class="card-h"><h3>Gate decisions</h3><span class="sub">agent evaluations</span></div><div class="card-b" id="exGates"></div></div>
-        </div>
-        <div class="exgrid">
-          <div class="card"><div class="card-h"><h3>By source</h3><span class="sub" id="exSrcSub"></span></div><div class="card-b tablewrap" style="padding-top:6px"><table><thead><tr><th>Source</th><th class="n">Screenings</th><th class="n">Flagged</th><th class="n">Flag rate</th><th class="n">Could not assess</th><th class="n">Peak risk</th><th class="n">Last seen</th></tr></thead><tbody id="exSrcBody"></tbody></table></div></div>
-          <div class="card"><div class="card-h"><h3>Recent flagged captures</h3><span class="sub">newest first</span></div><div class="card-b tablewrap" style="padding-top:6px"><table><thead><tr><th>When</th><th>Source</th><th>File</th><th>Verdict</th><th class="n">Risk</th><th class="n">Carrier</th></tr></thead><tbody id="exFlagBody"></tbody></table></div></div>
-        </div>
-        <div class="card" style="margin-top:var(--gap)"><div class="card-h"><h3>Reading this report</h3></div><div class="card-b exnotes" id="exNotes"></div></div>
       </section>
 
       <!-- OVERVIEW -->
       <section class="view" id="v-overview">
-        <div class="pagehead"><div><h1>Overview</h1><div class="sub" id="ovSub">Session summary and engine status</div></div>
+        <div class="pagehead"><div><h1>Activity</h1><div class="sub" id="ovSub">Session summary and engine status</div></div>
           <div class="acts"><button class="btn" data-go="live"><span class="ico-slot" data-ico="live"></span>Live monitor</button><button class="btn primary" data-go="analyze"><span class="ico-slot" data-ico="plus"></span>New analysis</button></div></div>
         <div class="kpis" id="kpis"></div>
         <div class="ovgrid">
@@ -166,7 +169,7 @@
         <div class="dropzone dz-sm" id="bdz"><span class="ico-slot" data-ico="upload"></span><div><b>Drop WAV files</b><div class="faint" style="font-size:12.5px">or click to choose several · scored one at a time</div></div></div>
         <div class="kpis" id="bkpis" style="margin-top:var(--gap)"></div>
         <div class="card fill"><div class="card-h"><h3>Results</h3><span class="sub" id="bCount">0 files</span><div class="right"><div class="seg" id="bFilter"><button data-f="all" class="on">All</button><button data-f="flag">Flagged</button><button data-f="CLEAR">Clear</button><button data-f="INSUFFICIENT_DATA">Insufficient</button></div></div></div>
-          <div class="card-b" style="padding-top:6px"><div class="empty hidden" id="bEmpty"></div><div class="tablewrap" id="bTable"><table><thead><tr><th class="sortable" data-k="name">File</th><th class="sortable" data-k="verdict">Verdict</th><th class="sortable n" data-k="risk">Risk</th><th class="sortable n" data-k="sr">Rate</th><th class="sortable n" data-k="dur">Duration</th><th class="sortable n" data-k="oob">Above 18 kHz</th><th class="sortable n" data-k="car">Carrier</th></tr></thead><tbody id="bBody"></tbody></table></div></div></div>
+          <div class="card-b"><div class="empty hidden" id="bEmpty"></div><div class="tablewrap" id="bTable"><table><thead><tr><th class="sortable" data-k="name">File</th><th class="sortable" data-k="verdict">Verdict</th><th class="sortable n" data-k="risk">Risk</th><th class="sortable n" data-k="sr">Rate</th><th class="sortable n" data-k="dur">Duration</th><th class="sortable n" data-k="oob">Above 18 kHz</th><th class="sortable n" data-k="car">Carrier</th></tr></thead><tbody id="bBody"></tbody></table></div></div></div>
       </section>
 
       <!-- COMPARE -->
@@ -176,13 +179,52 @@
         <div class="card" style="margin-top:var(--gap)"><div class="card-h"><h3>Differences</h3></div><div class="card-b tablewrap" id="cmpDiff"></div></div>
       </section>
 
+      <!-- REVIEW QUEUE -->
+      <section class="view" id="v-queue">
+        <div class="pagehead"><div><h1>Review queue</h1><div class="sub" id="qSub">Every flagged capture is a work item: triage it, investigate, resolve it with an outcome, and group related ones into an incident.</div></div>
+          <div class="acts"><div class="seg" id="qScope"><button data-s="open" class="on">Open</button><button data-s="mine">Assigned to me</button><button data-s="all">All</button></div><button class="btn" id="qGroup" disabled><span class="ico-slot" data-ico="incident"></span>Group into incident</button></div></div>
+        <div class="kpis five" id="qKpis"></div>
+        <div class="qgrid">
+          <div class="qmain">
+            <div class="board" id="qBoard"></div>
+            <div class="secthead"><h2>Incidents</h2><span>related captures handled together, with a response checklist</span></div>
+            <div class="incs" id="qIncs"></div>
+            <div class="secthead"><h2>Known-source rules</h2><span>learned from false positives · future matches are pre-labelled, never auto-cleared</span></div>
+            <div class="card"><div class="card-b" id="qRules"></div></div>
+          </div>
+          <div class="card qdrawer" id="qDrawer"></div>
+        </div>
+      </section>
+
       <!-- HISTORY -->
       <section class="view" id="v-history">
         <div class="pagehead"><div><h1>History</h1><div class="sub" id="hSub">Stored locally in this browser</div></div>
           <div class="acts"><button class="btn ghost" id="hExport"><span class="ico-slot" data-ico="download"></span>Export JSON</button><button class="btn ghost" id="hCsv"><span class="ico-slot" data-ico="download"></span>CSV</button><button class="btn danger" id="hClear">Clear history</button></div></div>
         <div class="kpis" id="hkpis"></div>
-        <div class="card fill"><div class="card-h"><div class="filters"><input class="inp" id="hQ" placeholder="Search name, tag, note…" style="width:260px"><div class="seg" id="hFilter"><button data-f="all" class="on">All</button><button data-f="flag">Flagged</button><button data-f="CLEAR">Clear</button><button data-f="INSUFFICIENT_DATA">Insufficient</button></div></div><div class="right"><span class="sub" id="hCount"></span></div></div>
-          <div class="card-b" style="padding-top:6px"><div class="empty hidden" id="hEmpty"></div><div class="tablewrap" id="hTable"><table><thead><tr><th class="sortable" data-k="ts">When</th><th class="sortable" data-k="name">Capture</th><th class="sortable" data-k="verdict">Verdict</th><th class="sortable n" data-k="risk">Risk</th><th class="sortable n" data-k="sr">Rate</th><th>Tags</th><th></th></tr></thead><tbody id="hBody"></tbody></table></div></div></div>
+        <div class="bento hx" id="hxWrap">
+          <div class="card span7 hx-mapcard"><div class="card-h"><h3>Decision map</h3><span class="sub">each assessable capture, placed by its two detector risks · click a point</span></div><div class="card-b"><div class="hxmap"><canvas id="hxMap" class="cv"></canvas><div class="cvtip hidden" id="hxTip"></div></div><div class="legend" id="hxMapLeg"></div></div></div>
+          <div class="card span5"><div class="card-h"><h3>Findings</h3><span class="sub">what stands out · click to filter the captures</span></div><div class="card-b"><div class="insights" id="hxIns"></div></div></div>
+          <div class="card span4"><div class="card-h"><h3>Over time</h3><span class="sub" id="hxTimeSub"></span></div><div class="card-b"><canvas id="hxTime" class="cv" style="height:160px"></canvas></div></div>
+          <div class="card span4"><div class="card-h"><h3>Risk distribution</h3><span class="sub" id="hxDistSub"></span></div><div class="card-b"><canvas id="hxDist" class="cv" style="height:160px"></canvas></div></div>
+          <div class="card span4 hx-car"><div class="card-h"><h3>Tonal peaks above 15 kHz</h3><span class="sub" id="hxCarSub"></span></div><div class="card-b"><canvas id="hxCar" class="cv" style="height:160px"></canvas></div></div>
+          <div class="span6 hxcol">
+            <div class="card"><div class="card-h"><h3>Detector agreement</h3><span class="sub">a capture is flagged only when both signatures are present</span></div><div class="card-b" id="hxAgree"></div></div>
+            <div class="card grow"><div class="card-h"><h3>If these were commands</h3><span class="sub" id="hxPolSub"></span></div><div class="card-b" id="hxPol"></div></div>
+          </div>
+          <div class="span6 hxcol"><div class="card grow"><div class="card-h"><h3>By tag</h3><span class="sub">click a tag to filter</span></div><div class="card-b tablewrap hxtags"><table><thead><tr><th>Tag</th><th class="n">Captures</th><th class="n">Flagged</th><th class="n">Not assessed</th><th class="n">Mean R</th><th class="n">Peak R</th></tr></thead><tbody id="hxTags"></tbody></table><div id="hxTagsMore"></div></div></div></div>
+        </div>
+        <div class="secthead" id="hExplorer"><h2>Captures</h2><span>select one for its full breakdown · double-click to open the analysis</span></div>
+        <div class="hgrid">
+          <div class="card hlist-card">
+            <div class="hbar"><div class="hsearch"><span class="ico-slot" data-ico="search"></span><input id="hQ" placeholder="Search name, tag, note…" autocomplete="off"></div>
+              <div class="seg" id="hFilter"><button data-f="all" class="on">All</button><button data-f="flag">Flagged</button><button data-f="CLEAR">Clear</button><button data-f="INSUFFICIENT_DATA">Could not assess</button></div>
+              <div class="seg" id="hSort"><button data-s="ts" class="on">Newest</button><button data-s="risk">Highest risk</button></div>
+              <span id="hFacet"></span><span class="hcount" id="hCount"></span></div>
+            <div class="empty hidden" id="hEmpty"></div>
+            <div class="hlist" id="hList"></div>
+          </div>
+          <div class="card hdetail" id="hDetail"></div>
+        </div>
       </section>
 
       <!-- POLICIES -->
@@ -224,7 +266,7 @@
       <!-- TRUST -->
       <section class="view" id="v-trust">
         <div class="pagehead"><div><h1>Trust gate</h1><div class="sub">Should the agent act on this command? Four checks — signal, speaker, source, content — one decision.</div></div>
-          <div class="acts"><span class="pill" id="tModels"></span><button class="btn ghost" id="tDemoBtn"><span class="ico-slot" data-ico="spark"></span>Run the demo</button></div></div>
+          <div class="acts"><span class="pill" id="tModels"></span><button class="btn" id="tDemoBtn"><span class="ico-slot" data-ico="spark"></span>Run the demo</button></div></div>
         <div class="tgrid">
           <div class="stack">
             <div class="card"><div class="card-h"><h3>Command</h3><span class="sub">the audio the agent heard, and what it understood</span></div><div class="card-b">
@@ -238,14 +280,14 @@
               </details>
               <button class="btn primary" id="tRun" style="width:100%;justify-content:center;margin-top:14px">Evaluate</button><div class="err" id="tErr"></div></div></div>
             <div class="card"><div class="card-h"><h3>Enrolled speaker</h3><span class="sub">who the agent should obey</span></div><div class="card-b">
-              <div class="row" style="gap:8px;flex-wrap:wrap"><select class="inp" id="tProfile" style="flex:1;min-width:160px"><option value="">no profile — speaker unverified</option></select><button class="btn sm ghost" id="tProfileDel" title="Delete profile">${""}<span class="ico-slot" data-ico="trash"></span></button></div>
+              <div class="row" style="gap:8px;flex-wrap:wrap"><select class="inp" id="tProfile" style="flex:1;min-width:160px"><option value="">no profile — speaker unverified</option></select><button class="btn sm ghost" id="tProfileDel" title="Delete profile"><span class="ico-slot" data-ico="trash"></span></button></div>
               <div class="faint" style="font-size:12.5px;margin:12px 0 8px">Enrol a new voice: a name and three short recordings of the user speaking naturally.</div>
               <div class="row" style="gap:8px;flex-wrap:wrap"><input class="inp" id="tEnrolName" placeholder="name" style="width:140px"><button class="btn sm rec" id="tEnrolRec"><span class="dot"></span><span class="rl">Record utterance</span></button><span class="faint" id="tEnrolCount" style="font-size:12.5px">0 recorded</span><span class="spacer"></span><button class="btn sm primary" id="tEnrolBtn" disabled>Enrol</button></div></div></div>
           </div>
           <div class="stack">
             <div class="card" id="tResult"><div class="card-h"><h3>Decision</h3><span class="sub" id="tResSub">run an evaluation</span></div><div class="card-b" id="tResBody"><div class="empty"><b>No evaluation yet</b>Choose or record a command, type what the agent heard, pick the action's sensitivity, and evaluate. Or run the demo.</div></div></div>
-            <div class="card"><div class="card-h"><h3>Trust tuple</h3><span class="sub" id="tTupleSub">one card per check</span></div><div class="card-b"><div class="layers" id="tLayers"></div></div></div>
-            <div class="card"><div class="card-h"><h3>Demo scenarios</h3><span class="sub">the engine runs each one for real</span></div><div class="card-b scenarios" id="tScenarios"></div></div>
+            <div class="card"><div class="card-h"><h3>Checks</h3><span class="sub" id="tTupleSub">signal · speaker · source · content</span></div><div class="card-b"><div class="layers" id="tLayers"></div><div class="tempty" id="tLayersEmpty">Each check reports a trust score, its band and the evidence behind it.</div></div></div>
+            <div class="card"><div class="card-h"><h3>Demo scenarios</h3><span class="sub">the engine runs each one for real</span></div><div class="card-b"><div class="scenarios" id="tScenarios"></div></div></div>
           </div>
         </div>
       </section>
@@ -275,6 +317,7 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
       <!-- SETTINGS -->
       <section class="view" id="v-settings">
         <div class="pagehead"><div><h1>Settings</h1><div class="sub">Preferences are stored in this browser</div></div></div>
+        <div class="card" style="margin-bottom:var(--gap)"><div class="card-h"><h3>Demo mode</h3><span class="sub">for walking someone through the platform</span></div><div class="card-b" id="setDemo"></div></div>
         <div class="grid2">
           <div class="stack">
             <div class="card"><div class="card-h"><h3>Appearance</h3></div><div class="card-b" id="setAppearance"></div></div>
@@ -294,7 +337,10 @@ print(report.verdict, result.decision)<button class="copy">Copy</button></div></
 <div class="toasts" id="toasts"></div>
 <div id="paletteMount"></div>
 <input id="fileIn" type="file" accept=".wav,audio/wav" hidden><input id="batchIn" type="file" accept=".wav,audio/wav" multiple hidden>
-<script src="/static/help.js?v=15"></script>
-<script src="/static/console.js?v=15"></script>
+<script src="/static/help.js?v=22"></script>
+<script src="/static/console.js?v=22"></script>
+<script src="/static/history.js?v=22"></script>
+<script src="/static/triage.js?v=22"></script>
+<script src="/static/demo.js?v=22"></script>
 </body>
 </html>

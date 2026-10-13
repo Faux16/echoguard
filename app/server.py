@@ -121,8 +121,8 @@ def _read_upload(upload: UploadFile) -> tuple[np.ndarray, int, bytes]:
 
 def _retain(kind: str, request: Request, filename: Optional[str], raw: bytes, result: dict) -> Optional[str]:
     """Write the upload and a light copy of its result to CAPTURE_DIR (if enabled)."""
-    if not CAPTURE_DIR:
-        return None
+    if not CAPTURE_DIR or request.headers.get("x-echoguard-synthetic") == "1":
+        return None                                   # synthetic audio (samples, simulated stream, demo mode) is never retained
     os.makedirs(CAPTURE_DIR, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%f")[:-3] + "Z"
     client = (request.client.host if request.client else "unknown").replace(":", "_")
@@ -365,6 +365,8 @@ async def fleet(days: int = 30) -> dict:
         "latency_ms": {"p50": ms[len(ms) // 2], "p95": ms[int(len(ms) * .95) - 1 if len(ms) > 1 else 0], "max": ms[-1]} if ms else None,
         "gates": gates,
         "mean_risk": (sum(float(r["risk"] or 0) for r in scored) / len(scored)) if scored else None,
+        "timeline": [[round(r["ts"], 1), r["verdict"], None if r["risk"] is None else round(float(r["risk"]), 3)]
+                     for r in sorted((r for r in rows if r["verdict"] in VERDICTS), key=lambda r: r["ts"])[-600:]],
         "recent_flagged": [
             {k: r[k] for k in ("ts", "client", "file", "verdict", "risk", "sr", "carrier", "sideband", "oob")}
             for r in sorted(flagged, key=lambda r: -r["ts"])[:12]

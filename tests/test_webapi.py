@@ -143,6 +143,18 @@ def test_fleet_aggregates_retained_captures(tmp_path, monkeypatch):
     assert len(d["by_day"]) == 1 and d["by_day"][0]["HIGH_RISK"] == 2
 
 
+def test_synthetic_audio_is_not_retained(tmp_path, monkeypatch):
+    """Samples, the simulated stream and demo mode send X-EchoGuard-Synthetic; a field-test server must not keep them."""
+    import app.server as srv
+    monkeypatch.setattr(srv, "CAPTURE_DIR", str(tmp_path))
+    files = {"file": ("s.wav", _wav_bytes(synth.benign_speechlike(sample_rate=SR)), "audio/wav")}
+    assert client.post("/api/scan", files=files, headers={"X-EchoGuard-Synthetic": "1"}).status_code == 200
+    assert not list(tmp_path.glob("*"))
+    files = {"file": ("r.wav", _wav_bytes(synth.benign_speechlike(sample_rate=SR)), "audio/wav")}
+    assert client.post("/api/scan", files=files).status_code == 200
+    assert len(list(tmp_path.glob("*.json"))) == 1
+
+
 def test_gate_rejects_bad_action():
     files = {"file": ("b.wav", _wav_bytes(synth.benign_speechlike(sample_rate=SR)), "audio/wav")}
     r = client.post("/api/gate", files=files, data={"action": "bogus"})
